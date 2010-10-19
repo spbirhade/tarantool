@@ -115,6 +115,7 @@ struct box_tuple {
 	u8 data[0];
 } __packed__;
 
+#define MAX_SELECT_FIELDS 10
 struct box_txn {
 	int op;
 	u32 flags;
@@ -129,6 +130,12 @@ struct box_txn {
 	struct box_tuple *lock_tuple;
 
 	bool in_recover, old_format;
+
+	struct {
+		u32 fieldno;
+		u32 offset;
+		u32 len;
+	} select_fmt[MAX_SELECT_FIELDS + 1];
 };
 
 enum tuple_flags {
@@ -172,7 +179,8 @@ enum box_mode {
         _(SELECT_LIMIT, 15)			\
 	_(SELECT, 17)				\
 	_(UPDATE_FIELDS, 19)			\
-	_(DELETE, 20)
+	_(DELETE, 20)				\
+	_(SELECT_FIELDS, 21)
 
 ENUM(messages, MESSAGES);
 

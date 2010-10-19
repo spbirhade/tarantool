@@ -919,11 +919,50 @@ tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple)
 		add_iov_dup(&tuple->bsize, sizeof(uint16_t));
 		add_iov_dup(&tuple->cardinality, sizeof(uint8_t));
 		add_iov(tuple->data, tuple->bsize);
-	} else
-		add_iov(&tuple->bsize,
-			tuple->bsize +
-			field_sizeof(struct box_tuple, bsize) +
-			field_sizeof(struct box_tuple, cardinality));
+	} else {
+		if (txn->select_fmt[0].fieldno == -1)
+			add_iov(&tuple->bsize,
+				tuple->bsize +
+				field_sizeof(struct box_tuple, bsize) +
+				field_sizeof(struct box_tuple, cardinality));
+		else {
+			struct tbuf *t = tbuf_alloc(fiber->pool);
+			u32 i = 0, *bsize, *cardinality;
+
+			bsize = palloc(fiber->pool, 2 * sizeof(u32));
+			add_iov(bsize, 2 * sizeof(u32));
+			cardinality = bsize + 1;
+			*bsize = 0;
+			*cardinality = 0;
+
+			while (txn->select_fmt[i].fieldno != -1) {
+				assert(i < MAX_SELECT_FIELDS);
+
+				void *data = tuple_field(tuple, txn->select_fmt[i].fieldno);
+				u32 size, offset, len;
+
+				if (data == NULL)
+					size = 0;
+				else
+					size = load_varint32(&data);
+				offset = txn->select_fmt[i].offset > size ?
+					size : txn->select_fmt[i].offset;
+				len = txn->select_fmt[i].len > (size - offset) ?
+					(size - offset) : txn->select_fmt[i].len;
+
+				*bsize += varint32_sizeof(len) + len;
+				*cardinality += 1;
+
+				write_varint32(t, len);
+				if (len)
+					tbuf_append(t, data + offset, len);
+
+				++i;
+			}
+
+			add_iov_dup(t->data, t->len);
+		}
+	}
 }
 
 static int __noinline__
@@ -931,7 +970,24 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data, bo
 {
 	struct box_tuple *tuple;
 	uint32_t *found;
-	u32 count = read_u32(data);
+	u32 count;
+
+	if (txn->op == SELECT_FIELDS) {
+		u32 n_fields = read_u32(data);
+
+		if (n_fields > MAX_SELECT_FIELDS)
+			box_raise(ERR_CODE_ILLEGAL_PARAMS, "too long format list");
+
+		u32 i;
+		for (i = 0; i < n_fields; ++i) {
+			txn->select_fmt[i].fieldno = read_u32(data);
+			txn->select_fmt[i].offset = read_u32(data);
+			txn->select_fmt[i].len = read_u32(data);
+		}
+		txn->select_fmt[i].fieldno = -1;
+	}
+
+	count = read_u32(data);
 
 	found = palloc(fiber->pool, sizeof(*found));
 	add_iov(found, sizeof(*found));
@@ -1040,6 +1096,7 @@ txn_alloc(u32 flags)
 	struct box_txn *txn = p0alloc(fiber->pool, sizeof(*txn));
 	txn->ref_tuples = tbuf_alloc(fiber->pool);
 	txn->flags |= flags;	/* note - select will overwrite this flags */
+	txn->select_fmt[0].fieldno = -1;
 	return txn;
 }
 
@@ -1105,7 +1162,7 @@ txn_abort(struct box_txn *txn)
 static bool
 op_is_select(u32 op)
 {
-	return op == SELECT || op == SELECT_LIMIT;
+	return op == SELECT || op == SELECT_LIMIT || op == SELECT_FIELDS;
 }
 
 u32
@@ -1171,7 +1228,9 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u32 op, struct tbuf *data)
 		stat_collect(stat_base, op, 1);
 		break;
 
-	case SELECT:{
+	case SELECT:
+	case SELECT_FIELDS:
+		{
 			u32 i = read_u32(data);
 			u32 offset = read_u32(data);
 			u32 limit = read_u32(data);
