@@ -133,8 +133,8 @@ struct box_txn {
 
 	struct {
 		u32 fieldno;
-		u32 offset;
-		u32 len;
+		i32 offset;
+		i32 len;
 	} select_fmt[MAX_SELECT_FIELDS + 1];
 };
 

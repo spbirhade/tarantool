@@ -939,23 +939,42 @@ tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple)
 				assert(i < MAX_SELECT_FIELDS);
 
 				void *data = tuple_field(tuple, txn->select_fmt[i].fieldno);
-				u32 size, offset, len;
+				i32 offset, len;
+				u32 size, noffset, nlen;
 
 				if (data == NULL)
 					size = 0;
 				else
 					size = load_varint32(&data);
-				offset = txn->select_fmt[i].offset > size ?
-					size : txn->select_fmt[i].offset;
-				len = txn->select_fmt[i].len > (size - offset) ?
-					(size - offset) : txn->select_fmt[i].len;
 
-				*bsize += varint32_sizeof(len) + len;
+				offset = txn->select_fmt[i].offset;
+				if (offset < 0) {
+					if (size < -offset)
+						box_raise(ERR_CODE_ILLEGAL_PARAMS,
+							  "tuple_add_iov: offset is negative");
+					noffset = offset + size;
+				} else
+					noffset = offset;
+				if (noffset > size)
+					noffset = size;
+
+				len = txn->select_fmt[i].len;
+				if (len < 0) {
+					if ((size - noffset) < -len)
+						nlen = 0;
+					else
+						nlen = len + size - noffset;
+				} else
+					nlen = len;
+				if (nlen > (size - noffset))
+					nlen = size - noffset;
+
+				*bsize += varint32_sizeof(nlen) + nlen;
 				*cardinality += 1;
 
-				write_varint32(t, len);
-				if (len)
-					tbuf_append(t, data + offset, len);
+				write_varint32(t, nlen);
+				if (nlen)
+					tbuf_append(t, data + noffset, nlen);
 
 				++i;
 			}
