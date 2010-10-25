@@ -71,6 +71,8 @@ class SilverBox < IProtoRetCode
         raw << pack_key(values.shift)
       when 'key*'
         values.shift.each { |x| raw << pack_key(x) }
+      when 'arr*'
+        values.shift.each { |x| raw << pack([x], 'a*') }
       else
         fail "unknown pack format: '#{fmt}'"
       end
@@ -87,6 +89,7 @@ class SilverBox < IProtoRetCode
 
   def unpack_tuple!(data)
     tuple = []
+    p tuple
     byte_size, cardinality = data.slice!(0 .. 7).unpack("LL")
     tuple_data = data.slice!(0 .. byte_size - 1)
     cardinality.times do
@@ -137,6 +140,27 @@ class SilverBox < IProtoRetCode
     index = param[:index] || 0
 
     reply = msg :code => 17, :raw => pack([namespace, index, offset, limit, keys], 'L L L L L/ key*')
+    unpack_reply!(reply, :return_tuple => true)
+  end
+
+  def select_fields(fmt, *keys)
+    format = []
+    fmt.each { |f|
+      fieldno = f[:fieldno] || 0
+      offset = f[:offset] || 0
+      len = f[:len] || -1
+
+      format.push pack([fieldno, offset, len], 'L L L')
+    }
+    keys = keys[0] if keys[0].is_a? Array
+    return [] if keys.length == 0
+    param = keys[-1].is_a?(Hash) ? keys.pop : {}
+    namespace = param[:namespace] || @namespace
+    offset = param[:offset] || 0
+    limit = param[:limit] || -1 # UINT32_MAX actually
+    index = param[:index] || 0
+
+    reply = msg :code => 21, :raw => pack([namespace, index, offset, limit, format, keys], 'L L L L L/ arr* L/ key*')
     unpack_reply!(reply, :return_tuple => true)
   end
 
