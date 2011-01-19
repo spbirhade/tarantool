@@ -22,6 +22,7 @@ parser sql:
     token VALUES:     'values'
     token SET:        'set'
     token END:        '\\s*$'
+    token K0:         'k0'
 
     rule sql:         (insert {{ stmt = insert }} |
                       update {{ stmt = update }} |
@@ -35,8 +36,10 @@ parser sql:
                       {{ return sql_ast.StatementUpdate(ident, update_list, opt_where) }}
     rule delete:      DELETE FROM ident opt_where
                       {{ return sql_ast.StatementDelete(ident, opt_where) }}
-    rule select:      SELECT '\*' FROM ident opt_where
-                      {{ return sql_ast.StatementSelect(ident, opt_where) }}
+    rule select:      SELECT ('\*' FROM ident opt_where
+                              {{ return sql_ast.StatementSelect(ident, opt_where) }} |
+                              K0 FROM ident
+                              {{ return sql_ast.StatementSelectKeys(ident) }})
     rule ping:        PING
                       {{ return sql_ast.StatementPing() }}
     rule predicate:   ident '=' constant

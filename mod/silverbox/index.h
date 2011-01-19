@@ -92,6 +92,8 @@ struct index {
 			u32 fieldno;
 			enum field_data_type type;
 		} *key_field;
+
+		/* number of fields in a key */
 		u32 key_cardinality;
 
 		u32 *field_cmp_order;

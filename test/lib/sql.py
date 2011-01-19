@@ -31,6 +31,7 @@ class sqlScanner(runtime.Scanner):
         ('VALUES', re.compile('values')),
         ('SET', re.compile('set')),
         ('END', re.compile('\\s*$')),
+        ('K0', re.compile('k0')),
     ]
     def __init__(self, str,*args,**kw):
         runtime.Scanner.__init__(self,None,{'\\s+':None,},str,*args,**kw)
@@ -88,11 +89,18 @@ class sql(runtime.Parser):
     def select(self, _parent=None):
         _context = self.Context(_parent, self._scanner, 'select', [])
         SELECT = self._scan('SELECT', context=_context)
-        self._scan("'\\*'", context=_context)
-        FROM = self._scan('FROM', context=_context)
-        ident = self.ident(_context)
-        opt_where = self.opt_where(_context)
-        return sql_ast.StatementSelect(ident, opt_where)
+        _token = self._peek("'\\*'", 'K0', context=_context)
+        if _token == "'\\*'":
+            self._scan("'\\*'", context=_context)
+            FROM = self._scan('FROM', context=_context)
+            ident = self.ident(_context)
+            opt_where = self.opt_where(_context)
+            return sql_ast.StatementSelect(ident, opt_where)
+        else: # == 'K0'
+            K0 = self._scan('K0', context=_context)
+            FROM = self._scan('FROM', context=_context)
+            ident = self.ident(_context)
+            return sql_ast.StatementSelectAllKeys(ident)
 
     def ping(self, _parent=None):
         _context = self.Context(_parent, self._scanner, 'ping', [])

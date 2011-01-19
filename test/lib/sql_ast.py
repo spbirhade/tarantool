@@ -21,6 +21,7 @@ INSERT_REQUEST_TYPE = 13
 SELECT_REQUEST_TYPE = 17
 UPDATE_REQUEST_TYPE = 19
 DELETE_REQUEST_TYPE = 20
+GET_ALL_KEYS_REQUEST_TYPE = 21
 PING_REQUEST_TYPE = 65280
 
 ER = {
@@ -276,3 +277,14 @@ class StatementSelect(StatementPing):
     else:
       return "Found {0} tuples:\n".format(tuple_count) + "\n".join(tuples)
 
+class StatementSelectAllKeys(StatementSelect):
+  reqeust_type = GET_ALL_KEYS_REQUEST_TYPE
+
+  def __init__(self, table_name):
+    self.namespace_no = table_name
+
+  def pack(self):
+    buf = ctypes.create_string_buffer(PACKET_BUF_LEN)
+    struct.pack_into("<L", buf, 0, self.namespace_no)
+
+    return buf
