@@ -44,6 +44,10 @@ struct namespace {
 	bool enabled;
 	int cardinality;
 	struct index index[MAX_IDX];
+	int expire_field; /* the expire timestamp field in tuple,
+			     if non zero background expire is enabled */
+	int expire_per_loop, expire_full_sweep; /* expire tunables */
+	bool (*tuple_expired)(struct namespace *, struct box_tuple *);
 };
 
 extern struct namespace *namespace;
@@ -114,7 +118,8 @@ enum box_mode {
         _(SELECT_LIMIT, 15)			\
 	_(SELECT, 17)				\
 	_(UPDATE_FIELDS, 19)			\
-	_(DELETE, 20)
+	_(DELETE, 20)				\
+	_(EXPIRE, 22)
 
 ENUM(messages, MESSAGES);
 
@@ -135,5 +140,5 @@ void append_field(struct tbuf *b, void *f);
 void *tuple_field(struct box_tuple *tuple, size_t i);
 
 void memcached_init(void);
-void memcached_expire(void *data __unused__);
+bool memcached_tuple_expired(struct namespace * __unused__, struct box_tuple *tuple);
 #endif

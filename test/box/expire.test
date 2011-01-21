@@ -1,0 +1,45 @@
+# encoding: tarantool
+#
+# backup default
+from os.path import abspath
+from time import sleep
+ 
+
+server.stop()
+server.install()
+os.unlink("var/tarantool.cfg")
+os.symlink(abspath("box/tarantool_expire.cfg"), "var/tarantool.cfg")
+server.start()
+
+# select from empty storage
+exec sql 'select * from t0 where k0 = 1'
+exec sql 'select * from t0 where k0 = 2'
+exec sql 'select * from t0 where k0 = 3'
+
+# insert into storage
+exec sql 'insert into t0 values (1, 1, "a")'
+exec sql 'insert into t0 values (2, 1, "b")'
+exec sql 'insert into t0 values (3, 1, "c")'
+
+# verify data
+exec sql 'select * from t0 where k0 = 1'
+exec sql 'select * from t0 where k0 = 2'
+exec sql 'select * from t0 where k0 = 3'
+
+# wait and reselect
+sleep(2)
+
+exec sql 'select * from t0 where k0 = 1'
+exec sql 'select * from t0 where k0 = 2'
+exec sql 'select * from t0 where k0 = 3'
+
+
+server.stop()
+server.install()
+server.start()
+
+# vim: syntax=python
+
+# Local Variables:
+# mode: python
+# End:

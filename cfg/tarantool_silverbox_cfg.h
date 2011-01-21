@@ -29,6 +29,9 @@ typedef struct tarantool_cfg_namespace {
 	int32_t	enabled;
 	int32_t	cardinality;
 	int32_t	estimated_rows;
+	int32_t	expire_field;
+	int32_t	expire_per_loop;
+	int32_t	expire_full_sweep;
 	tarantool_cfg_namespace_index**	index;
 } tarantool_cfg_namespace;
 

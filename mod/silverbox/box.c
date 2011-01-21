@@ -842,6 +842,66 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 	return ret_code;
 }
 
+static void
+namespace_expire(void *data)
+{
+	struct namespace *namespace = data;
+	khiter_t i = 0;
+	khash_t(int_ptr_map) *map = namespace->index[0].idx.hash;
+
+	say_info("expire fiber started");
+	for (;;) {
+		say_debug("expire loop");
+		if (i > kh_end(map))
+			i = kh_begin(map);
+
+		struct tbuf *keys_to_delete = tbuf_alloc(fiber->pool);
+		int expired_tuples = 0;
+
+		for (int j = 0; j < namespace->expire_per_loop; j++, i++) {
+			if (i == kh_end(map)) {
+				i = kh_begin(map);
+				break;
+			}
+
+			if (!kh_exist(map, i))
+				continue;
+
+			struct box_tuple *tuple = kh_value(map, i);
+
+			if (tuple->flags & GHOST || !namespace->tuple_expired(namespace, tuple))
+				continue;
+
+			say_debug("expire tuple %p", tuple);
+			tbuf_append_field(keys_to_delete, tuple->data);
+		}
+
+		while (keys_to_delete->len > 0) {
+			struct box_txn *txn = txn_alloc(BOX_QUIET);
+			void *key = read_field(keys_to_delete);
+			u32 key_cardinality = 1;
+
+			struct tbuf *req = tbuf_alloc(fiber->pool);
+			tbuf_append(req, &namespace->n, sizeof(u32));
+			tbuf_append(req, &key_cardinality, sizeof(key_cardinality));
+			tbuf_append_field(req, key);
+
+			box_dispach(txn, RW, DELETE, req);
+			expired_tuples++;
+		}
+		stat_collect(stat_base, EXPIRE, expired_tuples);
+
+		fiber_gc();
+
+		double delay = ((double)namespace->expire_per_loop * namespace->expire_full_sweep /
+				(map->size + 1));
+		if (delay > 1)
+			delay = 1;
+		fiber_sleep(delay);
+	}
+}
+
+
 static int
 box_xlog_sprint(struct tbuf *buf, const struct tbuf *t)
 {
@@ -1068,6 +1128,9 @@ custom_init(void)
 
 		namespace[i].cardinality = cfg.namespace[i]->cardinality;
 		int estimated_rows = cfg.namespace[i]->estimated_rows;
+		namespace[i].expire_field = cfg.namespace[i]->expire_field;
+		namespace[i].expire_per_loop = cfg.namespace[i]->expire_per_loop;
+		namespace[i].expire_full_sweep = cfg.namespace[i]->expire_full_sweep;
 
 		if (cfg.namespace[i]->index == NULL)
 			panic("(namespace = %" PRIu32 ") at least one index must be defined", i);
@@ -1213,6 +1276,26 @@ title(const char *fmt, ...)
 			       cfg.primary_port, cfg.secondary_port, cfg.admin_port);
 }
 
+/*
+ * desides whether the tuple expired or not.
+ * any error is treated like a positive answer.
+ */
+
+static bool
+box_tuple_expired(struct namespace *namespace, struct box_tuple *tuple)
+{
+	void *field = tuple_field(tuple, namespace->expire_field);
+	if (field == NULL)
+		return true;
+
+	u32 field_size = load_varint32(&field);
+	if (field_size != sizeof(u32))
+		return true;
+
+	return ev_now() > *(u32 *)field;
+}
+
+
 static void
 box_bound_to_primary(void *data __unused__)
 {
@@ -1232,18 +1315,34 @@ box_bound_to_primary(void *data __unused__)
 		status = "primary";
 		box_updates_allowed = true;
 		title("primary");
+
+		for (int i = 0; i < namespace_count; i++) {
+			struct fiber *e;
+
+			if (!namespace[i].enabled || namespace[i].expire_field <= 0)
+				continue;
+
+			e = fiber_create("box_expire", -1, -1, namespace_expire, &namespace[i]);
+			if (e == NULL)
+				panic("can't start the expire fiber");
+			fiber_call(e);
+		}
+
 	}
 }
+
 
 static void
 memcached_bound_to_primary(void *data __unused__)
 {
+	struct fiber *e;
 	box_bound_to_primary(NULL);
 
-	struct fiber *expire = fiber_create("memecached_expire", -1, -1, memcached_expire, NULL);
-	if (expire == NULL)
+	e = fiber_create("memecached_expire", -1, -1,
+			 namespace_expire, &namespace[cfg.memcached_namespace]);
+	if (e == NULL)
 		panic("can't start the expire fiber");
-	fiber_call(expire);
+	fiber_call(e);
 }
 
 i32
@@ -1267,6 +1366,8 @@ mod_init(void)
 	namespace = palloc(eter_pool, sizeof(struct namespace) * namespace_count);
 	for (int i = 0; i < namespace_count; i++) {
 		namespace[i].enabled = false;
+		namespace[i].tuple_expired = box_tuple_expired;
+
 		for (int j = 0; j < MAX_IDX; j++)
 			namespace[i].index[j].key_cardinality = 0;
 	}
@@ -1306,7 +1407,9 @@ mod_init(void)
 
 	/* initialize hashes _after_ starting wal writer */
 	if (cfg.memcached != 0) {
-		int n = cfg.memcached_namespace > 0 ? cfg.memcached_namespace : MEMCACHED_NAMESPACE;
+		if (cfg.memcached_namespace <= 0)
+			cfg.memcached_namespace  = MEMCACHED_NAMESPACE;
+		const int n = cfg.memcached_namespace;
 
 		cfg.namespace = palloc(eter_pool, (n + 1) * sizeof(cfg.namespace[0]));
 		for (u32 i = 0; i <= n; ++i) {
@@ -1331,6 +1434,12 @@ mod_init(void)
 		cfg.namespace[n]->index[0]->key_field[0]->fieldno = 0;
 		cfg.namespace[n]->index[0]->key_field[0]->type = "STR";
 
+
+		/* memcached mode uses custom expire routine */
+		namespace[n].tuple_expired = memcached_tuple_expired;
+		cfg.namespace[n]->expire_field = 1;
+		cfg.namespace[n]->expire_per_loop = cfg.memcached_expire_per_loop;
+		cfg.namespace[n]->expire_full_sweep = cfg.memcached_expire_full_sweep;
 		memcached_index = &namespace[n].index[0];
 	}
 

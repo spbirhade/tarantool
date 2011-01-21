@@ -114,6 +114,11 @@ namespace = [
   enabled = 0, ro, required
   cardinality = -1, ro
   estimated_rows = 0, ro
+
+  expire_field = -1, ro
+  expire_per_loop = 1024, ro
+  expire_full_sweep = 3600, ro
+
   index = [
     type = "", ro, required
     unique = -1, ro, required

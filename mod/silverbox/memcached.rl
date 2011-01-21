@@ -44,8 +44,7 @@
 #define STAT(_)					\
         _(MEMC_GET, 1)				\
         _(MEMC_GET_MISS, 2)			\
-	_(MEMC_GET_HIT, 3)			\
-	_(MEMC_EXPIRED_KEYS, 4)
+	_(MEMC_GET_HIT, 3)
 
 ENUM(memcached_stat, STAT);
 STRS(memcached_stat, STAT);
@@ -138,8 +137,8 @@ meta(struct box_tuple *tuple)
 	return field + 1;
 }
 
-static bool
-expired(struct box_tuple *tuple)
+bool
+memcached_tuple_expired(struct namespace *n __unused__, struct box_tuple *tuple)
 {
 	struct meta *m = meta(tuple);
  	return m->exptime == 0 ? 0 : m->exptime < ev_now();
@@ -261,7 +260,7 @@ memcached_dispatch(struct box_txn *txn)
 		action add {
 			key = read_field(keys);
 			struct box_tuple *tuple = find(key);
-			if (tuple != NULL && !expired(tuple))
+			if (tuple != NULL && !memcached_tuple_expired(NULL, tuple))
 				add_iov("NOT_STORED\r\n", 12);
 			else
 				STORE;
@@ -270,7 +269,7 @@ memcached_dispatch(struct box_txn *txn)
 		action replace {
 			key = read_field(keys);
 			struct box_tuple *tuple = find(key);
-			if (tuple == NULL || expired(tuple))
+			if (tuple == NULL || memcached_tuple_expired(NULL, tuple))
 				add_iov("NOT_STORED\r\n", 12);
 			else
 				STORE;
@@ -279,7 +278,7 @@ memcached_dispatch(struct box_txn *txn)
 		action cas {
 			key = read_field(keys);
 			struct box_tuple *tuple = find(key);
-			if (tuple == NULL || expired(tuple))
+			if (tuple == NULL || memcached_tuple_expired(NULL, tuple))
 				add_iov("NOT_FOUND\r\n", 11);
 			else if (meta(tuple)->cas != cas)
 				add_iov("EXISTS\r\n", 8);
@@ -323,7 +322,7 @@ memcached_dispatch(struct box_txn *txn)
 
 			key = read_field(keys);
 			struct box_tuple *tuple = find(key);
-			if (tuple == NULL || tuple->flags & GHOST || expired(tuple)) {
+			if (tuple == NULL || tuple->flags & GHOST || memcached_tuple_expired(NULL, tuple)) {
 				add_iov("NOT_FOUND\r\n", 11);
 			} else {
 				m = meta(tuple);
@@ -368,7 +367,7 @@ memcached_dispatch(struct box_txn *txn)
 		action delete {
 			key = read_field(keys);
 			struct box_tuple *tuple = find(key);
-			if (tuple == NULL || tuple->flags & GHOST || expired(tuple)) {
+			if (tuple == NULL || tuple->flags & GHOST || memcached_tuple_expired(NULL, tuple)) {
 				add_iov("NOT_FOUND\r\n", 11);
 			} else {
 				if (delete(txn, key) == 0)
@@ -644,54 +643,6 @@ void
 memcached_init(void)
 {
 	stat_base = stat_register(memcached_stat_strs, memcached_stat_MAX);
-}
-
-void
-memcached_expire(void *data __unused__)
-{
-	static khiter_t i;
-	khash_t(lstr_ptr_map) *map = memcached_index->idx.str_hash;
-
-	say_info("memcached expire fiber started");
-	for (;;) {
-		if (i > kh_end(map))
-			i = kh_begin(map);
-
-		struct tbuf *keys_to_delete = tbuf_alloc(fiber->pool);
-		int expired_keys = 0;
-
-		for (int j = 0; j < cfg.memcached_expire_per_loop; j++, i++) {
-			if (i == kh_end(map)) {
-				i = kh_begin(map);
-				break;
-			}
-
-			if (!kh_exist(map, i))
-				continue;
-
-			struct box_tuple *tuple = kh_value(map, i);
-
-			if (!expired(tuple))
-				continue;
-
-			say_debug("expire tuple %p", tuple);
-			tbuf_append_field(keys_to_delete, tuple->data);
-		}
-
-		while (keys_to_delete->len > 0) {
-			struct box_txn *txn = txn_alloc(BOX_QUIET);
-			delete(txn, read_field(keys_to_delete));
-			expired_keys++;
-		}
-		stat_collect(stat_base, MEMC_EXPIRED_KEYS, expired_keys);
-
-		fiber_gc();
-
-		double delay = (double)cfg.memcached_expire_per_loop * cfg.memcached_expire_full_sweep / (map->size + 1);
-		if (delay > 1)
-			delay = 1;
-		fiber_sleep(delay);
-	}
 }
 
 /*
