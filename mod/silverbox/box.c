@@ -629,13 +629,13 @@ add_key_tuple_iov(struct box_tuple *tuple, u32 fieldno)
 {
 	void *key_field = tuple_field(tuple, fieldno);
 	void *p = key_field;
-	u32 size = load_varint32(&p);
-	u32 key_field_size = p + size - key_field;
-	u32 len = field_sizeof(struct box_tuple, bsize) +
-		  field_sizeof(struct box_tuple, cardinality) +
-		  key_field_size;
+	u32 data_len = load_varint32(&p);
+	u32 key_field_len = p + data_len - key_field;
+	u32 tuple_len = field_sizeof(struct box_tuple, bsize) +
+		        field_sizeof(struct box_tuple, cardinality) +
+		        key_field_len;
 
-	void *data = palloc(fiber->pool, len);
+	void *data = palloc(fiber->pool, tuple_len);
 	struct box_tuple *t = data - offsetof(struct box_tuple, bsize);
 	t->bsize = key_field_size;
 	t->cardinality = 1;

@@ -1,0 +1,25 @@
+# encoding: tarantool
+
+# start test with clean storage
+server.stop()
+server.install()
+server.start()
+
+exec sql 'ping'
+
+exec sql 'select k0 from t0'
+exec sql 'insert into t0 values (1, "a")'
+
+exec sql 'select k0 from t0'
+
+exec sql 'insert into t0 values (1, "a")'
+exec sql 'insert into t0 values (2, "b")'
+exec sql 'insert into t0 values (3, "c")'
+exec sql 'insert into t0 values (4, "d")'
+exec sql 'select k0 from t0'
+
+exec sql 'delete from t0 where k0 = 1'
+exec sql 'select k0 from t0'
+
+exec sql 'delete from t0 where k0 = 3'
+exec sql 'select k0 from t0'
