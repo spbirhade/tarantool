@@ -624,23 +624,24 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
  * 1.  only network transfered part of tuple is allocated.
  */
 
-static void
-add_key_tuple_iov(struct box_tuple *tuple, u32 fieldno)
+static void *
+key_tuple_alloc(struct box_tuple *tuple, u32 fieldno, u32 *tuple_len)
 {
 	void *key_field = tuple_field(tuple, fieldno);
 	void *p = key_field;
 	u32 data_len = load_varint32(&p);
 	u32 key_field_len = p + data_len - key_field;
-	u32 tuple_len = field_sizeof(struct box_tuple, bsize) +
-		        field_sizeof(struct box_tuple, cardinality) +
-		        key_field_len;
+	*tuple_len = field_sizeof(struct box_tuple, bsize) +
+		     field_sizeof(struct box_tuple, cardinality) +
+		     key_field_len;
 
-	void *data = palloc(fiber->pool, tuple_len);
+	void *data = palloc(fiber->pool, *tuple_len);
 	struct box_tuple *t = data - offsetof(struct box_tuple, bsize);
-	t->bsize = key_field_size;
+	t->bsize = key_field_len;
 	t->cardinality = 1;
-	memcpy(t->data, key_field, key_field_size);
-	add_iov(&t->bsize, len);
+	memcpy(t->data, key_field, key_field_len);
+	//add_iov(&t->bsize, tuple_len);
+	return data;
 }
 
 static int __noinline__
@@ -650,6 +651,8 @@ process_get_all_keys(struct box_txn *txn)
 	uint32_t *key_count;
 	u32 fieldno = txn->index->key_field[0].fieldno;
 	khash_t(int_ptr_map) *hash = txn->index->idx.hash;
+	void *data = NULL;
+	u32 data_len = 0;
 
 	/*
 	 * code below assumes that primary index is a hash
@@ -672,9 +675,25 @@ process_get_all_keys(struct box_txn *txn)
 		if (tuple->flags & GHOST)
 			continue;
 
-		add_key_tuple_iov(tuple, fieldno);
+		u32 tuple_data_len;
+		void *tuple_data = key_tuple_alloc(tuple, fieldno, &tuple_data_len);
+
+		if (data + data_len == tuple_data) {
+			/* data and tuple_data_len are adjacent */
+			data_len += tuple_data_len;
+		} else {
+			/* they are disjont */
+			add_iov(data, data_len);
+			data = tuple_data;
+			data_len = tuple_data_len;
+		}
+
 		(*key_count)++;
 	}
+
+	if (data != NULL)
+		add_iov(data, data_len);
+
 
 	return ERR_CODE_OK;
 }
