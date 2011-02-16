@@ -49,8 +49,6 @@ send_row(struct recovery_state *r __unused__, struct tbuf *t)
 		data += bytes;
 	}
 
-	say_debug("send row: %" PRIu32 " bytes %s", t->len, tbuf_to_hex(t));
-
 	return 0;
 }
 
