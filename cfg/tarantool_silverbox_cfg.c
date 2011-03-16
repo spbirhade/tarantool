@@ -708,8 +708,6 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGINT;
 		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
 			return CNF_WRONGRANGE;
-		if (check_rdonly && c->remote_hot_standby != i32)
-			return CNF_RDONLY;
 		c->remote_hot_standby = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__wal_feeder_ipaddr) ) {
@@ -2196,10 +2194,12 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 
 		return diff;
 	}
-	if (c1->remote_hot_standby != c2->remote_hot_standby) {
-		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->remote_hot_standby");
+	if (!only_check_rdonly) {
+		if (c1->remote_hot_standby != c2->remote_hot_standby) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->remote_hot_standby");
 
-		return diff;
+			return diff;
+		}
 	}
 	if (confetti_strcmp(c1->wal_feeder_ipaddr, c2->wal_feeder_ipaddr) != 0) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_ipaddr");

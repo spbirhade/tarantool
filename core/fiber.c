@@ -326,6 +326,9 @@ static void
 fiber_zombificate()
 {
 	diag_clear();
+	ev_io_stop(&fiber->io);
+	ev_timer_stop(&fiber->timer);
+	ev_child_stop(&fiber->cw);
 	fiber->name = NULL;
 	fiber->f = NULL;
 	fiber->data = NULL;
@@ -347,9 +350,11 @@ fiber_loop(void *data __unused__)
 			panic("fiber %s failure, exiting", fiber->name);
 		}
 
+		say_crit("zombificating fiber");
 		fiber_close();
 		fiber_zombificate();
 		yield();	/* give control back to scheduler */
+		say_crit("reschedule zombie");
 	}
 }
 

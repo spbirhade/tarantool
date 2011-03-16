@@ -53,6 +53,8 @@ STRS(messages, MESSAGES);
 const int MEMCACHED_NAMESPACE = 23;
 static char *custom_proc_title;
 
+static struct fiber *remote_recover;
+
 /* hooks */
 typedef int (*box_hook_t) (struct box_txn * txn);
 
@@ -1316,20 +1318,23 @@ box_tuple_expired(struct namespace *namespace, struct box_tuple *tuple)
 
 
 static void
-box_bound_to_primary(void *data __unused__)
+box_master_or_slave(struct tarantool_cfg *cfg)
 {
-	recover_finalize(recovery_state);
-
-	if (cfg.remote_hot_standby) {
+	if (cfg->remote_hot_standby) {
 		say_info("starting remote hot standby");
 		status = palloc(eter_pool, 64);
-		snprintf(status, 64, "hot_standby/%s:%i%s", cfg.wal_feeder_ipaddr,
-			 cfg.wal_feeder_port, custom_proc_title);
-		recover_follow_remote(recovery_state, cfg.wal_feeder_ipaddr, cfg.wal_feeder_port,
-				      default_remote_row_handler);
-
-		title("hot_standby/%s:%i", cfg.wal_feeder_ipaddr, cfg.wal_feeder_port);
+		snprintf(status, 64, "hot_standby/%s:%i%s", cfg->wal_feeder_ipaddr,
+			 cfg->wal_feeder_port, custom_proc_title);
+		remote_recover = recover_follow_remote(recovery_state,
+						       cfg->wal_feeder_ipaddr, cfg->wal_feeder_port,
+						       default_remote_row_handler);
+		title("hot_standby/%s:%i", cfg->wal_feeder_ipaddr, cfg->wal_feeder_port);
 	} else {
+		if (remote_recover) {
+			say_crit("killing fiber %i", remote_recover->fid);
+			fiber_raise(remote_recover, remote_recover->exc, FIBER_EXIT);
+			remote_recover = NULL;
+		}
 		say_info("I am primary");
 		status = "primary";
 		box_updates_allowed = true;
@@ -1352,6 +1357,13 @@ box_bound_to_primary(void *data __unused__)
 
 
 static void
+box_bound_to_primary(void *data __attribute__((unused)))
+{
+	recover_finalize(recovery_state);
+	box_master_or_slave(&cfg);
+}
+
+static void
 memcached_bound_to_primary(void *data __unused__)
 {
 	struct fiber *e;
@@ -1371,10 +1383,15 @@ mod_check_config(struct tarantool_cfg *conf __unused__)
 }
 
 void
-mod_reload_config(struct tarantool_cfg *old_conf __unused__,
-		  struct tarantool_cfg *new_conf __unused__)
+mod_reload_config(struct tarantool_cfg *old_conf,
+		  struct tarantool_cfg *new_conf)
 {
-	return;
+	if (old_conf->remote_hot_standby != new_conf->remote_hot_standby) {
+		if (recovery_state->finalize != true)
+			return;
+
+		box_master_or_slave(new_conf);
+	}
 }
 
 void
