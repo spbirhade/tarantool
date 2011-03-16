@@ -104,10 +104,11 @@ class Test:
     sql = DataConnection(self.suite_ini["host"],
                          self.suite_ini["port"])
     server = self.suite_ini["server"]
+    stdout_redirect = FilteredStream(self.tmp_result)
     try:
       admin.connect()
       sql.connect()
-      sys.stdout = FilteredStream(self.tmp_result)
+      sys.stdout = stdout_redirect
       server = self.suite_ini["server"]
       vardir = self.suite_ini["vardir"]
       execfile(self.name, globals(), locals())
@@ -260,6 +261,8 @@ class TestSuite:
   def run_all(self):
     """For each file in the test suite, run client program
     assuming each file represents an individual test."""
+    if len(self.tests) == 0:
+       return 0
     server = TarantoolSilverboxServer(self.args, self.ini)
     server.install()
     server.start()
@@ -296,4 +299,9 @@ class TestSuite:
     if self.args.valgrind and check_valgrind_log(self.ini["valgrind_log"]):
       print "  Error! There were warnings/errors in valgrind log file:"
       print_tail_n(self.ini["valgrind_log"], 20)
+      return 1
+
+    return len(failed_tests)
+
+
 

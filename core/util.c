@@ -42,6 +42,10 @@
 #include <util.h>
 #include <fiber.h>
 
+#ifndef HAVE_LIBC_STACK_END
+void *__libc_stack_end;
+#endif
+
 void
 close_all_xcpt(int fdc, ...)
 {
@@ -103,8 +107,9 @@ xrealloc(void *ptr, size_t size)
 #ifdef ENABLE_BACKTRACE
 
 /*
- * we use global static buffer because it is too late to do
- * any allocation when we are printing bactrace and fiber stack is small
+ * We use a global static buffer because it is too late to do any
+ * allocation when we are printing backtrace and fiber stack is
+ * small.
  */
 
 static char backtrace_buf[4096 * 4];

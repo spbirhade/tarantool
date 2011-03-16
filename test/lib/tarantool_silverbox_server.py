@@ -9,6 +9,8 @@ import time
 import socket
 import daemon
 import glob
+import signal
+import traceback
 
 def wait_until_connected(host, port):
   """Wait until the server is started and accepting connections"""
@@ -33,7 +35,7 @@ def prepare_gdb(args):
   if term not in ["xterm", "rxvt", "urxvt", "gnome-terminal", "konsole"]:
     raise RuntimeError("--gdb: unsupported terminal {0}".format(term))
 
-  args = [ term, "-e ", "gdb", "-ex", "break main", "-ex", "run"] + args
+  args = [ term, "-e", "gdb", "-ex", "break main", "-ex", "run"] + args
   return args
 
 
@@ -116,9 +118,11 @@ class TarantoolSilverboxServer:
                           stdout = subprocess.PIPE,
                           stderr = subprocess.PIPE)
 
-    version = subprocess.Popen([self.abspath_to_exe, "--version"],
-                               cwd = self.args.vardir,
-                               stdout = subprocess.PIPE).stdout.read().rstrip()
+    p = subprocess.Popen([self.abspath_to_exe, "--version"],
+                         cwd = self.args.vardir,
+                         stdout = subprocess.PIPE)
+    version = p.stdout.read().rstrip()
+    p.wait()
 
     if not silent:
       print "Starting {0} {1}.".format(os.path.basename(self.abspath_to_exe),
@@ -150,7 +154,7 @@ class TarantoolSilverboxServer:
         os.wait()
       else:
         with daemon.DaemonContext(working_directory = self.args.vardir):
-	  os.execvp(args[0], args)
+          os.execvp(args[0], args)
     else:
       self.server = pexpect.spawn(args[0], args[1:], cwd = self.args.vardir)
       if self.args.start_and_exit:
@@ -160,7 +164,7 @@ class TarantoolSilverboxServer:
     if self.args.gdb and self.args.start_and_exit:
       time.sleep(1)
     elif not self.args.start_and_exit and not self.args.gdb:
-      self.server.expect_exact("entering event loop")
+      self.server.expect_exact("I am primary")
     else:
       wait_until_connected(self.suite_ini["host"], self.suite_ini["port"])
 
@@ -188,13 +192,13 @@ class TarantoolSilverboxServer:
     self.start(True)
 
   def test_option(self, option_list_str):
-      args = [self.abspath_to_exe] + option_list_str.split()
-      print " ".join([os.path.basename(self.abspath_to_exe)] + args[1:])
-      output = subprocess.Popen(args,
-                                cwd = self.args.vardir,
-                                stdout = subprocess.PIPE,
-                                stderr = subprocess.STDOUT).stdout.read()
-      print output
+    args = [self.abspath_to_exe] + option_list_str.split()
+    print " ".join([os.path.basename(self.abspath_to_exe)] + args[1:])
+    output = subprocess.Popen(args,
+                          cwd = self.args.vardir,
+                          stdout = subprocess.PIPE,
+                          stderr = subprocess.STDOUT).stdout.read()
+    print output
 
 
   def find_exe(self):

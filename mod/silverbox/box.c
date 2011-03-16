@@ -268,17 +268,25 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 #endif
 		lock_tuple(txn, txn->old_tuple);
 	} else {
+		lock_tuple(txn, txn->tuple);
 		/*
-		 * if tuple doesn't exist insert GHOST tuple in indeces
-		 * in order to avoid race condition
-		 * ref count will be incr in commit
+		 * Mark the tuple as ghost before attempting an
+		 * index replace: if it fails, txn_abort() will
+		 * look at the flag and remove the tuple.
 		 */
-
+		txn->tuple->flags |= GHOST;
+		/*
+		 * If the tuple doesn't exist, insert a GHOST
+		 * tuple in all indices in order to avoid a race
+		 * condition when another INSERT comes along:
+		 * a concurrent INSERT, UPDATE, or DELETE, returns
+		 * an error when meets a ghost tuple.
+		 *
+		 * Tuple reference counter will be incremented in
+		 * txn_commit().
+		 */
 		foreach_index(txn->n, index)
 			index->replace(index, NULL, txn->tuple);
-
-		lock_tuple(txn, txn->tuple);
-		txn->tuple->flags |= GHOST;
 	}
 
 	return -1;
@@ -558,6 +566,11 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 
 	if (txn->index->type == TREE) {
 		for (u32 i = 0; i < count; i++) {
+
+			/* End the loop if reached the limit. */
+			if (limit == *found)
+				goto end;
+
 			u32 key_len = read_u32(data);
 			void *key = read_field(data);
 
@@ -578,17 +591,19 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 					continue;
 				}
 
-				(*found)++;
 				tuple_add_iov(txn, tuple);
 
-				if (--limit == 0)
+				if (limit == ++(*found))
 					break;
 			}
-			if (limit == 0)
-				break;
 		}
 	} else {
 		for (u32 i = 0; i < count; i++) {
+
+			/* End the loop if reached the limit. */
+			if (limit == *found)
+				goto end;
+
 			u32 key_len = read_u32(data);
 			if (key_len != 1)
 				box_raise(ERR_CODE_ILLEGAL_PARAMS,
@@ -603,17 +618,15 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 				continue;
 			}
 
-			(*found)++;
 			tuple_add_iov(txn, tuple);
-
-			if (--limit == 0)
-				break;
+			(*found)++;
 		}
 	}
 
 	if (data->len != 0)
 		box_raise(ERR_CODE_ILLEGAL_PARAMS, "can't unpack request");
 
+end:
 	return ERR_CODE_OK;
 }
 
@@ -1124,7 +1137,10 @@ custom_init(void)
 		if (cfg.namespace[i] == NULL)
 			break;
 
-		namespace[i].enabled = !!cfg.namespace[i]->enabled;
+		if (!CNF_STRUCT_DEFINED(cfg.namespace[i]))
+			namespace[i].enabled = false;
+		else
+			namespace[i].enabled = !!cfg.namespace[i]->enabled;
 
 		if (!namespace[i].enabled)
 			continue;
