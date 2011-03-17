@@ -206,8 +206,8 @@ ev_schedule(ev_watcher *watcher, int event __unused__)
 	fiber_call(watcher->data);
 }
 
-static struct fiber *
-fid2fiber(int fid)
+struct fiber *
+fid2fiber(u32 fid)
 {
 	khiter_t k = kh_get(fid2fiber, fibers_registry, fid);
 
@@ -350,11 +350,9 @@ fiber_loop(void *data __unused__)
 			panic("fiber %s failure, exiting", fiber->name);
 		}
 
-		say_crit("zombificating fiber");
 		fiber_close();
 		fiber_zombificate();
 		yield();	/* give control back to scheduler */
-		say_crit("reschedule zombie");
 	}
 }
 

@@ -1331,8 +1331,19 @@ box_master_or_slave(struct tarantool_cfg *cfg)
 		title("hot_standby/%s:%i", cfg->wal_feeder_ipaddr, cfg->wal_feeder_port);
 	} else {
 		if (remote_recover) {
-			say_crit("killing fiber %i", remote_recover->fid);
-			fiber_raise(remote_recover, remote_recover->exc, FIBER_EXIT);
+			u32 remote_recover_fid = remote_recover->fid;
+			struct remote_state *h = remote_recover->f_data;
+			h->terminate = true;
+			if (h->busy) {
+				while (fid2fiber(remote_recover_fid)) {
+					say_crit("waiting fiber %i", remote_recover_fid);
+					fiber_sleep(1);
+				}
+			} else {
+				say_crit("killing fiber %i", remote_recover_fid);
+				fiber_raise(remote_recover, remote_recover->exc, FIBER_EXIT);
+
+			}
 			remote_recover = NULL;
 		}
 		say_info("I am primary");

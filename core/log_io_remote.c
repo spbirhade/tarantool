@@ -149,10 +149,15 @@ pull_from_remote(void *state)
 		h->r->recovery_lag = ev_now() - row_v11(row)->tm;
 		h->r->recovery_last_update_tstamp = ev_now();
 
+		h->busy = true;
 		if (h->handler(h->r, row) < 0) {
 			fiber_close();
 			continue;
 		}
+		h->busy = false;
+
+		if (h->terminate)
+			return;
 
 		fiber_gc();
 	}
@@ -198,7 +203,7 @@ recover_follow_remote(struct recovery_state *r, char *ip_addr, int port,
 	name = palloc(eter_pool, 64);
 	snprintf(name, 64, "remote_hot_standby/%s:%i", ip_addr, port);
 
-	h = palloc(eter_pool, sizeof(*h));
+	h = p0alloc(eter_pool, sizeof(*h));
 	h->r = r;
 	h->handler = handler;
 

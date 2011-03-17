@@ -112,6 +112,7 @@ extern struct fiber *fiber;
 
 void fiber_init(void);
 struct fiber *fiber_create(const char *name, int fd, int inbox_size, void (*f) (void *), void *);
+struct fiber *fid2fiber(u32 fid);
 void wait_for(int events);
 void wait_for_child(pid_t pid);
 void unwait(int events);

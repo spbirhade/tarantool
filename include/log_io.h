@@ -103,6 +103,7 @@ struct recovery_state {
 struct remote_state {
 	struct recovery_state *r;
 	int (*handler) (struct recovery_state * r, struct tbuf *row);
+	volatile bool busy, terminate;
 };
 
 struct wal_write_request {
