@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -34,12 +35,16 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifdef RESOLVE_SYMBOLS
+#ifdef HAVE_BFD
 #include <bfd.h>
-#endif
+#endif /* HAVE_BFD */
 
 #include <util.h>
 #include <fiber.h>
+
+#ifndef HAVE_LIBC_STACK_END
+void *__libc_stack_end;
+#endif
 
 void
 close_all_xcpt(int fdc, ...)
@@ -83,7 +88,7 @@ coredump(int dump_interval)
 
 	if (fork() == 0) {
 		close_all_xcpt(0);
-#ifdef COVERAGE
+#ifdef ENABLE_GCOV
 		__gcov_flush();
 #endif
 		abort();
@@ -99,11 +104,12 @@ xrealloc(void *ptr, size_t size)
 	return ret;
 }
 
-#ifdef BACKTRACE
+#ifdef ENABLE_BACKTRACE
 
 /*
- * we use global static buffer because it is too late to do
- * any allocation when we are printing bactrace and fiber stack is small
+ * We use a global static buffer because it is too late to do any
+ * allocation when we are printing backtrace and fiber stack is
+ * small.
  */
 
 static char backtrace_buf[4096 * 4];
@@ -135,24 +141,24 @@ backtrace(void *frame_, void *stack, size_t stack_size)
 		p += r;
 		len -= r;
 
-#ifdef RESOLVE_SYMBOLS
+#ifdef HAVE_BFD
 		struct symbol *s = addr2symbol(frame->ret);
 		if (s != NULL) {
-			r = snprintf(p, len, " <%s+%i> ", s->name, frame->ret - s->addr);
+			r = snprintf(p, len, " <%s+%"PRI_SZ"> ", s->name, frame->ret - s->addr);
 			if (r >= len)
 				goto out;
 			p += r;
 			len -= r;
 
 		}
-#endif
+#endif /* HAVE_BFD */
 		r = snprintf(p, len, " }\r\n");
 		if (r >= len)
 			goto out;
 		p += r;
 		len -= r;
 
-#ifdef RESOLVE_SYMBOLS
+#ifdef HAVE_BFD
 		if (s != NULL && strcmp(s->name, "main") == 0)
 			break;
 
@@ -165,15 +171,15 @@ out:
 	*p = 0;
         return backtrace_buf;
 }
-#endif
+#endif /* ENABLE_BACKTRACE */
 
 void __attribute__ ((noreturn))
 assert_fail(const char *assertion, const char *file, unsigned int line, const char *function)
 {
 	fprintf(stderr, "%s:%i: %s: assertion %s failed.\n", file, line, function, assertion);
 
-#ifdef BACKTRACE
-	void *frame = frame_addess();
+#ifdef ENABLE_BACKTRACE
+	void *frame = __builtin_frame_address(0);
 	void *stack_top;
 	size_t stack_size;
 
@@ -186,12 +192,12 @@ assert_fail(const char *assertion, const char *file, unsigned int line, const ch
 	}
 
 	fprintf(stderr, "%s", backtrace(frame, stack_top, stack_size));
-#endif
+#endif /* ENABLE_BACKTRACE */
 	close_all_xcpt(0);
 	abort();
 }
 
-#ifdef RESOLVE_SYMBOLS
+#ifdef HAVE_BFD
 static struct symbol *symbols;
 static size_t symbol_count;
 
@@ -313,4 +319,4 @@ out:
 	return NULL;
 }
 
-#endif
+#endif /* HAVE_BFD */

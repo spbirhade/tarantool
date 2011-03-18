@@ -40,6 +40,7 @@
 #include <tbuf.h>
 #include <util.h>
 
+#include <cfg/tarantool_silverbox_cfg.h>
 #include <mod/silverbox/box.h>
 #include <mod/silverbox/index.h>
 
@@ -267,17 +268,25 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 #endif
 		lock_tuple(txn, txn->old_tuple);
 	} else {
+		lock_tuple(txn, txn->tuple);
 		/*
-		 * if tuple doesn't exist insert GHOST tuple in indeces
-		 * in order to avoid race condition
-		 * ref count will be incr in commit
+		 * Mark the tuple as ghost before attempting an
+		 * index replace: if it fails, txn_abort() will
+		 * look at the flag and remove the tuple.
 		 */
-
+		txn->tuple->flags |= GHOST;
+		/*
+		 * If the tuple doesn't exist, insert a GHOST
+		 * tuple in all indices in order to avoid a race
+		 * condition when another INSERT comes along:
+		 * a concurrent INSERT, UPDATE, or DELETE, returns
+		 * an error when meets a ghost tuple.
+		 *
+		 * Tuple reference counter will be incremented in
+		 * txn_commit().
+		 */
 		foreach_index(txn->n, index)
 			index->replace(index, NULL, txn->tuple);
-
-		lock_tuple(txn, txn->tuple);
-		txn->tuple->flags |= GHOST;
 	}
 
 	return -1;
@@ -557,6 +566,11 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 
 	if (txn->index->type == TREE) {
 		for (u32 i = 0; i < count; i++) {
+
+			/* End the loop if reached the limit. */
+			if (limit == *found)
+				goto end;
+
 			u32 key_len = read_u32(data);
 			void *key = read_field(data);
 
@@ -577,17 +591,19 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 					continue;
 				}
 
-				(*found)++;
 				tuple_add_iov(txn, tuple);
 
-				if (--limit == 0)
+				if (limit == ++(*found))
 					break;
 			}
-			if (limit == 0)
-				break;
 		}
 	} else {
 		for (u32 i = 0; i < count; i++) {
+
+			/* End the loop if reached the limit. */
+			if (limit == *found)
+				goto end;
+
 			u32 key_len = read_u32(data);
 			if (key_len != 1)
 				box_raise(ERR_CODE_ILLEGAL_PARAMS,
@@ -602,17 +618,15 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 				continue;
 			}
 
-			(*found)++;
 			tuple_add_iov(txn, tuple);
-
-			if (--limit == 0)
-				break;
+			(*found)++;
 		}
 	}
 
 	if (data->len != 0)
 		box_raise(ERR_CODE_ILLEGAL_PARAMS, "can't unpack request");
 
+end:
 	return ERR_CODE_OK;
 }
 
@@ -831,11 +845,13 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 
 	txn->op = op;
 	txn->n = read_u32(data);
+	if (txn->n > namespace_count - 1)
+		box_raise(ERR_CODE_NO_SUCH_NAMESPACE, "bad namespace number");
 	txn->index = &namespace[txn->n].index[0];
 
 	if (!namespace[txn->n].enabled) {
 		say_warn("namespace %i is not enabled", txn->n);
-		box_raise(ERR_CODE_ILLEGAL_PARAMS, "namespace is not enabled");
+		box_raise(ERR_CODE_NO_SUCH_NAMESPACE, "namespace is not enabled");
 	}
 
 	txn->namespace = &namespace[txn->n];
@@ -1147,7 +1163,10 @@ custom_init(void)
 		if (cfg.namespace[i] == NULL)
 			break;
 
-		namespace[i].enabled = !!cfg.namespace[i]->enabled;
+		if (!CNF_STRUCT_DEFINED(cfg.namespace[i]))
+			namespace[i].enabled = false;
+		else
+			namespace[i].enabled = !!cfg.namespace[i]->enabled;
 
 		if (!namespace[i].enabled)
 			continue;
@@ -1496,21 +1515,21 @@ mod_snapshot(struct log_io_iter *i)
 void
 mod_info(struct tbuf *out)
 {
-	tbuf_printf(out, "info:\n");
-	tbuf_printf(out, "  version: \"%s\"\r\n", tarantool_version());
-	tbuf_printf(out, "  uptime: %i\r\n", (int)tarantool_uptime());
-	tbuf_printf(out, "  pid: %i\r\n", getpid());
-	tbuf_printf(out, "  wal_writer_pid: %" PRIi64 "\r\n",
+	tbuf_printf(out, "info:" CRLF);
+	tbuf_printf(out, "  version: \"%s\"" CRLF, tarantool_version());
+	tbuf_printf(out, "  uptime: %i" CRLF, (int)tarantool_uptime());
+	tbuf_printf(out, "  pid: %i" CRLF, getpid());
+	tbuf_printf(out, "  wal_writer_pid: %" PRIi64 CRLF,
 		    (i64) recovery_state->wal_writer->pid);
-	tbuf_printf(out, "  lsn: %" PRIi64 "\r\n", recovery_state->confirmed_lsn);
-	tbuf_printf(out, "  recovery_lag: %.3f\r\n", recovery_state->recovery_lag);
-	tbuf_printf(out, "  recovery_last_update: %.3f\r\n",
+	tbuf_printf(out, "  lsn: %" PRIi64 CRLF, recovery_state->confirmed_lsn);
+	tbuf_printf(out, "  recovery_lag: %.3f" CRLF, recovery_state->recovery_lag);
+	tbuf_printf(out, "  recovery_last_update: %.3f" CRLF,
 		    recovery_state->recovery_last_update_tstamp);
-	tbuf_printf(out, "  status: %s\r\n", status);
+	tbuf_printf(out, "  status: %s" CRLF, status);
 }
 
 void
 mod_exec(char *str __unused__, int len __unused__, struct tbuf *out)
 {
-	tbuf_printf(out, "unimplemented\r\n");
+	tbuf_printf(out, "unimplemented" CRLF);
 }

@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <sysexits.h>
-#ifdef Linux
+#ifdef TARGET_OS_LINUX
 # include <sys/prctl.h>
 #endif
 #include <admin.h>
@@ -49,9 +50,10 @@
 #include <say.h>
 #include <stat.h>
 #include <tarantool.h>
+#include TARANTOOL_CONFIG
 #include <util.h>
 #include <third_party/gopt/gopt.h>
-#include <tarantool_version.h>
+
 
 static pid_t master_pid;
 #define DEFAULT_CFG_FILENAME "tarantool.cfg"
@@ -60,6 +62,7 @@ char *cfg_filename_fullpath = NULL;
 struct tbuf *cfg_out = NULL;
 char *binary_filename;
 struct tarantool_cfg cfg;
+struct recovery_state *recovery_state;
 
 bool init_storage, booting = true;
 
@@ -87,10 +90,11 @@ load_cfg(struct tarantool_cfg *conf, i32 check_rdonly)
 
 	parse_cfg_file_tarantool_cfg(conf, f, check_rdonly, &n_accepted, &n_skipped);
 	fclose(f);
-	if (n_accepted == 0 || n_skipped != 0)
-		return -1;
 
 	if (check_cfg_tarantool_cfg(conf) != 0)
+		return -1;
+
+	if (n_accepted == 0 || n_skipped != 0)
 		return -1;
 
 	return mod_check_config(conf);
@@ -109,8 +113,9 @@ reload_cfg(struct tbuf *out)
 		return -1;
 	}
 	ret = load_cfg(&new_cfg1, 1);
-	tbuf_append(out, cfg_out->data, cfg_out->len);
 	if (ret == -1) {
+		tbuf_append(out, cfg_out->data, cfg_out->len);
+
 		destroy_tarantool_cfg(&new_cfg1);
 
 		return -1;
@@ -122,8 +127,9 @@ reload_cfg(struct tbuf *out)
 		return -1;
 	}
 	ret = load_cfg(&new_cfg2, 0);
-	tbuf_append(out, cfg_out->data, cfg_out->len);
 	if (ret == -1) {
+		tbuf_append(out, cfg_out->data, cfg_out->len);
+
 		destroy_tarantool_cfg(&new_cfg1);
 
 		return -1;
@@ -134,7 +140,8 @@ reload_cfg(struct tbuf *out)
 		destroy_tarantool_cfg(&new_cfg1);
 		destroy_tarantool_cfg(&new_cfg2);
 
-		out_warning(0, "tCould not accept read only '%s' option", diff);
+		out_warning(0, "Could not accept read only '%s' option", diff);
+		tbuf_append(out, cfg_out->data, cfg_out->len);
 
 		return -1;
 	}
@@ -152,7 +159,7 @@ reload_cfg(struct tbuf *out)
 const char *
 tarantool_version(void)
 {
-	return tarantool_version_string;
+	return TARANTOOL_VERSION;
 }
 
 static double start_time;
@@ -164,35 +171,47 @@ tarantool_uptime(void)
 }
 
 #ifdef STORAGE
-void
-snapshot(void *ev __unused__, int events __unused__)
+int
+snapshot(void *ev, int events __unused__)
 {
 	pid_t p = fork();
 	if (p < 0) {
 		say_syserror("fork");
-		return;
+		return -1;
 	}
-	if (p > 0)
-		return;
+	if (p > 0) {
+		/*
+		 * If called from a signal handler, we can't
+		 * access any fiber state, and no one is expecting
+		 * to get an execution status. Just return 0 to
+		 * indicate a successful fork.
+		 */
+		if (ev != NULL)
+			return 0;
+		/*
+		 * This is 'save snapshot' call received from the
+		 * administrative console. Check for the child
+		 * exit status and report it back. This is done to
+		 * make 'save snapshot' synchronous, and propagate
+		 * any possible error up to the user.
+		 */
+		wait_for_child(p);
+		assert(p == fiber->cw.rpid);
+		return WEXITSTATUS(fiber->cw.rstatus);
+	}
 
 	fiber->name = "dumper";
 	set_proc_title("dumper (%" PRIu32 ")", getppid());
 	close_all_xcpt(1, sayfd);
 	snapshot_save(recovery_state, mod_snapshot);
-#ifdef COVERAGE
+#ifdef ENABLE_GCOV
 	__gcov_flush();
 #endif
 	_exit(EXIT_SUCCESS);
+
+	return 0;
 }
 #endif
-
-static void
-sig_child(int signal __unused__)
-{
-	int child_status;
-	/* TODO: watch child status & destroy corresponding fibers */
-	while (waitpid(-1, &child_status, WNOHANG) > 0) ;
-}
 
 static void
 sig_int(int signal)
@@ -206,7 +225,7 @@ sig_int(int signal)
 			usleep(1000);
 		}
 	}
-#ifdef COVERAGE
+#ifdef ENABLE_GCOV
 	__gcov_flush();
 #endif
 
@@ -217,6 +236,10 @@ sig_int(int signal)
 		_exit(EXIT_SUCCESS);
 }
 
+/**
+ * Adjust the process signal mask and add handlers for signals.
+ */
+
 static void
 signal_init(void)
 {
@@ -226,12 +249,6 @@ signal_init(void)
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGPIPE, &sa, 0) == -1)
-		goto error;
-
-	sa.sa_handler = sig_child;
-	sa.sa_flags = SA_RESTART;
-	sigemptyset(&sa.sa_mask);
-	if (sigaction(SIGCHLD, &sa, NULL) == -1)
 		goto error;
 
 	sa.sa_handler = sig_int;
@@ -268,6 +285,13 @@ create_pid(void)
 	f = fopen(cfg.pid_file, "a+");
 	if (f == NULL)
 		panic_syserror("can't open pid file");
+	/*
+	 * fopen() is not guaranteed to set the seek position to
+	 * the beginning of file according to ANSI C (and, e.g.,
+	 * on FreeBSD.
+	 */
+	if (fseeko(f, 0, SEEK_SET) != 0)
+		panic_syserror("can't fseek to the beginning of pid file");
 
 	if (fgets(buf, sizeof(buf), f) != NULL && strlen(buf) > 0) {
 		pid = strtol(buf, NULL, 10);
@@ -275,7 +299,8 @@ create_pid(void)
 			panic("the daemon is already running");
 		else
 			say_info("updating a stale pid file");
-		fseeko(f, 0, SEEK_SET);
+		if (fseeko(f, 0, SEEK_SET) != 0)
+			panic_syserror("can't fseek to the beginning of pid file");
 		if (ftruncate(fileno(f), 0) == -1)
 			panic_syserror("ftruncate(`%s')", cfg.pid_file);
 	}
@@ -314,6 +339,17 @@ main(int argc, char **argv)
 #endif
 	const char *cfg_paramname = NULL;
 
+#ifndef HAVE_LIBC_STACK_END
+/*
+ * GNU libc provides a way to get at the top of the stack. This
+ * is, of course, not standard and doesn't work on non-GNU
+ * systems, such as FreeBSD. But as far as we're concerned, argv
+ * is at the top of the main thread's stack, so save the address
+ * of it.
+ */
+	__libc_stack_end = (void*) &argv;
+#endif
+
 	master_pid = getpid();
 	stat_init();
 	palloc_init();
@@ -321,14 +357,15 @@ main(int argc, char **argv)
 #ifdef RESOLVE_SYMBOLS
 	load_symbols(argv[0]);
 #endif
+	argv = init_set_proc_title(argc, argv);
 
 	const void *opt_def =
 		gopt_start(gopt_option('g', GOPT_ARG, gopt_shorts(0),
 				       gopt_longs("cfg-get", "cfg_get"),
 				       "=KEY", "return a value from configuration file described by KEY"),
 			   gopt_option('k', 0, gopt_shorts(0),
-				       gopt_longs("check_config"),
-				       NULL, "check config file"),
+				       gopt_longs("check-config"),
+				       NULL, "Check configuration file for errors"),
 			   gopt_option('c', GOPT_ARG, gopt_shorts('c'),
 				       gopt_longs("config"),
 				       "=FILE", "path to configuration file (default: " DEFAULT_CFG_FILENAME ")"),
@@ -405,27 +442,6 @@ main(int argc, char **argv)
 		panic("can't load config:"
 		      "%.*s", cfg_out->len, (char *)cfg_out->data);
 
-#ifdef STORAGE
-	if (gopt_arg(opt, 'C', &cat_filename)) {
-		initialize_minimal();
-		if (access(cat_filename, R_OK) == -1) {
-			say_syserror("access(\"%s\")", cat_filename);
-			exit(EX_OSFILE);
-		}
-		return mod_cat(cat_filename);
-	}
-
-	if (gopt(opt, 'I')) {
-		init_storage = true;
-		initialize_minimal();
-		mod_init();
-		next_lsn(recovery_state, 1);
-		confirm_lsn(recovery_state, 1);
-		snapshot_save(recovery_state, mod_snapshot);
-		exit(EXIT_SUCCESS);
-	}
-#endif
-
 	if (gopt_arg(opt, 'g', &cfg_paramname)) {
 		tarantool_cfg_iterator_t *i;
 		char *key, *value;
@@ -475,13 +491,34 @@ main(int argc, char **argv)
 			say_syserror("setrlimit");
 			exit(EX_OSERR);
 		}
-#ifdef Linux
+#ifdef TARGET_OS_LINUX
 		if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) < 0) {
 			say_syserror("prctl");
 			exit(EX_OSERR);
 		}
 #endif
 	}
+
+#ifdef STORAGE
+	if (gopt_arg(opt, 'C', &cat_filename)) {
+		initialize_minimal();
+		if (access(cat_filename, R_OK) == -1) {
+			say_syserror("access(\"%s\")", cat_filename);
+			exit(EX_OSFILE);
+		}
+		return mod_cat(cat_filename);
+	}
+
+	if (gopt(opt, 'I')) {
+		init_storage = true;
+		initialize_minimal();
+		mod_init();
+		next_lsn(recovery_state, 1);
+		confirm_lsn(recovery_state, 1);
+		snapshot_save(recovery_state, mod_snapshot);
+		exit(EXIT_SUCCESS);
+	}
+#endif
 
 	if (gopt(opt, 'D'))
 		daemonize(1, 1);
@@ -491,8 +528,6 @@ main(int argc, char **argv)
 		atexit(remove_pid);
 	}
 
-	argv = init_set_proc_title(argc, argv);
-
 	say_logger_init(cfg.logger_nonblock);
 	booting = false;
 
@@ -501,6 +536,8 @@ main(int argc, char **argv)
 	signal_init();
 	mod_init();
 #elif defined(STORAGE)
+	ev_default_loop(EVFLAG_AUTO);
+
 	ev_signal *ev_sig;
 	ev_sig = palloc(eter_pool, sizeof(ev_signal));
 	ev_signal_init(ev_sig, (void *)snapshot, SIGUSR1);
@@ -508,7 +545,6 @@ main(int argc, char **argv)
 
 	initialize(cfg.slab_alloc_arena, cfg.slab_alloc_minimal, cfg.slab_alloc_factor);
 	signal_init();
-	ev_default_loop(0);
 
 	mod_init();
 	admin_init();

@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -45,6 +46,7 @@
 #include <util.h>
 #include <pickle.h>
 #include <tbuf.h>
+#include "diagnostics.h"
 
 const u16 snap_tag = -1;
 const u16 wal_tag = -2;
@@ -57,6 +59,7 @@ const u32 marker_v11 = 0xba0babed;
 const u32 eof_marker_v11 = 0x10adab1e;
 const char *snap_suffix = ".snap";
 const char *xlog_suffix = ".xlog";
+const char *inprogress_suffix = ".inprogress";
 const char *v04 = "0.04\n";
 const char *v03 = "0.03\n";
 const char *v11 = "0.11\n";
@@ -178,7 +181,7 @@ snap_classes(row_reader snap_row_reader, const char *dirname)
 	c[1]->filetype = c[0]->filetype;
 	c[1]->suffix = c[0]->suffix;
 
-	c[0]->dirname = c[1]->dirname = dirname;
+	c[0]->dirname = c[1]->dirname = dirname ? strdup(dirname) : NULL;
 	return c;
 }
 
@@ -197,7 +200,7 @@ xlog_classes(const char *dirname)
 	xlog04_class(c[0]);
 	v11_class(c[1]);
 
-	c[0]->dirname = c[1]->dirname = dirname;
+	c[0]->dirname = c[1]->dirname = dirname ? strdup(dirname) : NULL;
 	return c;
 }
 
@@ -364,14 +367,30 @@ scan_dir(struct log_io_class *class, i64 **ret_lsn)
 
 	errno = 0;
 	while ((dent = readdir(dh)) != NULL) {
-		size_t len = strlen(dent->d_name) + 1;
-		if (len < suffix_len + 1)
+		char *suffix = strrchr(dent->d_name, '.');
+
+		if (suffix == NULL)
 			continue;
-		if (strcmp(dent->d_name + len - 1 - suffix_len, class->suffix))
+
+		char *sub_suffix = memrchr(dent->d_name, '.', suffix - dent->d_name);
+
+		/*
+		 * A valid suffix is either .xlog or
+		 * .xlog.inprogress, given class->suffix ==
+		 * 'xlog'.
+		 */
+		bool valid_suffix;
+		valid_suffix = (strcmp(suffix, class->suffix) == 0 ||
+				(sub_suffix != NULL &&
+				 strcmp(suffix, inprogress_suffix) == 0 &&
+				 strncmp(sub_suffix, class->suffix, suffix_len) == 0));
+
+		if (!valid_suffix)
 			continue;
 
 		lsn[i] = strtoll(dent->d_name, &parse_suffix, 10);
-		if (strcmp(parse_suffix, class->suffix) != 0) {	/* d_name doesn't parse entirely, ignore it */
+		if (strncmp(parse_suffix, class->suffix, suffix_len) != 0) {
+			/* d_name doesn't parse entirely, ignore it */
 			say_warn("can't parse `%s', skipping", dent->d_name);
 			continue;
 		}
@@ -547,11 +566,61 @@ row_reader_v11(FILE *f, struct palloc_pool *pool)
 	return m;
 }
 
+static int
+inprogress_log_rename(char *filename)
+{
+	char *new_filename;
+	char *suffix = strrchr(filename, '.');
+
+	assert(suffix);
+	assert(strcmp(suffix, inprogress_suffix) == 0);
+
+	/* Create a new filename without '.inprogress' suffix. */
+	new_filename = alloca(suffix - filename + 1);
+	memcpy(new_filename, filename, suffix - filename);
+	new_filename[suffix - filename] = '\0';
+
+	if (rename(filename, new_filename) != 0) {
+		say_syserror("can't rename %s to %s", filename, new_filename);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+inprogress_log_unlink(char *filename)
+{
+#ifndef NDEBUG
+	char *suffix = strrchr(filename, '.');
+	assert(suffix);
+	assert(strcmp(suffix, inprogress_suffix) == 0);
+#endif
+	if (unlink(filename) != 0) {
+		/* Don't panic if there is no such file. */
+		if (errno == ENOENT)
+			return 0;
+
+		say_syserror("can't unlink %s", filename);
+
+		return -1;
+	}
+
+	return 0;
+}
+
 int
 close_log(struct log_io **lptr)
 {
 	struct log_io *l = *lptr;
 	int r;
+
+	if (l->rows == 1 && l->mode == LOG_WRITE) {
+		/* Rename WAL before finalize. */
+		if (inprogress_log_rename(l->filename) != 0)
+			panic("can't rename 'inprogress' WAL");
+	}
 
 	if (l->class->eof_marker_size > 0 && l->mode == LOG_WRITE) {
 		if (fwrite(&l->class->eof_marker, l->class->eof_marker_size, 1, l->f) != 1)
@@ -574,7 +643,7 @@ flush_log(struct log_io *l)
 	if (fflush(l->f) < 0)
 		return -1;
 
-#ifdef Linux
+#ifdef TARGET_OS_LINUX
 	if (fdatasync(fileno(l->f)) < 0) {
 		say_syserror("fdatasync");
 		return -1;
@@ -627,13 +696,12 @@ format_filename(char *filename, struct log_io_class *class, i64 lsn, int suffix)
 			 class->dirname, lsn, class->suffix);
 		break;
 	case -1:
-		snprintf(filename, PATH_MAX, "%s/%020" PRIi64 "%s.inprogress",
-			 class->dirname, lsn, class->suffix);
+		snprintf(filename, PATH_MAX, "%s/%020" PRIi64 "%s%s",
+			 class->dirname, lsn, class->suffix, inprogress_suffix);
 		break;
 	default:
-		snprintf(filename, PATH_MAX, "%s/%020" PRIi64 "%s.%i",
-			 class->dirname, lsn, class->suffix, suffix);
-		break;
+		/* not reached */
+		assert(0);
 	}
 	return filename;
 }
@@ -645,14 +713,15 @@ open_for_read(struct recovery_state *recover, struct log_io_class **class, i64 l
 	char filetype[32], version[32], buf[256];
 	struct log_io *l = NULL;
 	char *r;
-	char *error = "unknown error";
 
-	l = malloc(sizeof(*l));
-	if (l == NULL)
+	l = calloc(1, sizeof(*l));
+	if (l == NULL) {
+		diag_set_error(errno, strerror(errno));
 		goto error;
-	memset(l, 0, sizeof(*l));
+	}
 	l->mode = LOG_READ;
 	l->stat.data = recover;
+	l->is_inprogress = suffix == -1 ? true : false;
 
 	/* when filename is not null it is forced open for debug reading */
 	if (filename == NULL) {
@@ -667,24 +736,24 @@ open_for_read(struct recovery_state *recover, struct log_io_class **class, i64 l
 
 	l->f = fopen(l->filename, "r");
 	if (l->f == NULL) {
-		error = strerror(errno);
+		diag_set_error(errno, strerror(errno));
 		goto error;
 	}
 
 	r = fgets(filetype, sizeof(filetype), l->f);
 	if (r == NULL) {
-		error = "header reading failed";
+		diag_set_error(1, "header reading failed");
 		goto error;
 	}
 
 	r = fgets(version, sizeof(version), l->f);
 	if (r == NULL) {
-		error = "header reading failed";
+		diag_set_error(1, "header reading failed");
 		goto error;
 	}
 
 	if (strcmp((*class)->filetype, filetype) != 0) {
-		error = "unknown filetype";
+		diag_set_error(1, "unknown filetype");
 		goto error;
 	}
 
@@ -695,7 +764,7 @@ open_for_read(struct recovery_state *recover, struct log_io_class **class, i64 l
 	}
 
 	if (*class == NULL) {
-		error = "unknown version";
+		diag_set_error(1, "unknown version");
 		goto error;
 	}
 	l->class = *class;
@@ -704,7 +773,7 @@ open_for_read(struct recovery_state *recover, struct log_io_class **class, i64 l
 		for (;;) {
 			r = fgets(buf, sizeof(buf), l->f);
 			if (r == NULL) {
-				error = "header reading failed";
+				diag_set_error(1, "header reading failed");
 				goto error;
 			}
 			if (strcmp(r, "\n") == 0 || strcmp(r, "\r\n") == 0)
@@ -713,14 +782,15 @@ open_for_read(struct recovery_state *recover, struct log_io_class **class, i64 l
 	} else {
 		r = fgets(buf, sizeof(buf), l->f);	/* skip line with time */
 		if (r == NULL) {
-			error = "header reading failed";
+			diag_set_error(1, "header reading failed");
 			goto error;
 		}
 	}
 
 	return l;
       error:
-	say_error("open_for_read: failed to open `%s': %s", l->filename, error);
+	say_error("open_for_read: failed to open `%s': %s", l->filename,
+		  diag_get_last_error()->msg);
 	if (l != NULL) {
 		if (l->f != NULL)
 			fclose(l->f);
@@ -734,12 +804,14 @@ open_for_write(struct recovery_state *recover, struct log_io_class *class, i64 l
 {
 	struct log_io *l = NULL;
 	int fd;
-	char *error = "unknown error";
+	char *dot;
+	bool exists;
 
-	l = malloc(sizeof(*l));
-	if (l == NULL)
+	l = calloc(1, sizeof(*l));
+	if (l == NULL) {
+		diag_set_error(errno, strerror(errno));
 		goto error;
-	memset(l, 0, sizeof(*l));
+	}
 	l->mode = LOG_WRITE;
 	l->class = class;
 	l->stat.data = recover;
@@ -749,15 +821,34 @@ open_for_write(struct recovery_state *recover, struct log_io_class *class, i64 l
 	format_filename(l->filename, class, lsn, suffix);
 	say_debug("find_log for writing `%s'", l->filename);
 
+	if (suffix == -1) {
+		/*
+		 * Check whether a file with this name already exists.
+		 * We don't overwrite existing files.
+		 */
+		dot = strrchr(l->filename, '.');
+		*dot = '\0';
+		exists = access(l->filename, F_OK) == 0;
+		*dot = '.';
+		if (exists) {
+			diag_set_error(EEXIST, "exists");
+			goto error;
+		}
+	}
+
+	/*
+	 * Open the <lsn>.<suffix>.inprogress file. If it
+	 * exists, open will fail.
+	 */
 	fd = open(l->filename, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0664);
 	if (fd < 0) {
-		error = strerror(errno);
+		diag_set_error(errno, strerror(errno));
 		goto error;
 	}
 
 	l->f = fdopen(fd, "a");
 	if (l->f == NULL) {
-		error = strerror(errno);
+		diag_set_error(errno, strerror(errno));
 		goto error;
 	}
 
@@ -765,7 +856,8 @@ open_for_write(struct recovery_state *recover, struct log_io_class *class, i64 l
 	write_header(l);
 	return l;
       error:
-	say_error("find_log: failed to open `%s': %s", l->filename, error);
+	say_error("find_log: failed to open `%s': %s", l->filename,
+		  diag_get_last_error()->msg);
 	if (l != NULL) {
 		if (l->f != NULL)
 			fclose(l->f);
@@ -937,8 +1029,6 @@ recover_remaining_wals(struct recovery_state *r)
 {
 	int result = 0;
 	struct log_io *next_wal;
-	char *name;
-	int suffix = 0;
 	i64 current_lsn, wal_greatest_lsn;
 	size_t rows_before;
 
@@ -964,13 +1054,30 @@ recover_remaining_wals(struct recovery_state *r)
 		}
 
 		current_lsn = r->confirmed_lsn + 1;	/* TODO: find better way looking for next xlog */
-		next_wal = open_for_read(r, r->wal_class, current_lsn, suffix, NULL);
+		next_wal = open_for_read(r, r->wal_class, current_lsn, 0, NULL);
+
+		/*
+		 * When doing final recovery, and dealing with the
+		 * last file, try opening .<suffix>.inprogress.
+		 */
+		if (next_wal == NULL && r->finalize && current_lsn == wal_greatest_lsn) {
+			next_wal = open_for_read(r, r->wal_class, current_lsn, -1, NULL);
+			if (next_wal == NULL) {
+				char *filename =
+					format_filename(NULL, *r->wal_class, current_lsn, -1);
+
+				say_warn("unlink broken %s wal", filename);
+				if (inprogress_log_unlink(filename) != 0)
+					panic("can't unlink 'inprogres' wal");
+			}
+		}
+
 		if (next_wal == NULL) {
-			if (suffix++ < 10)
-				continue;
 			result = 0;
 			break;
 		}
+
+
 		assert(r->current_wal == NULL);
 		r->current_wal = next_wal;
 		say_info("recover from `%s'", r->current_wal->filename);
@@ -986,26 +1093,10 @@ recover_remaining_wals(struct recovery_state *r)
 		if (r->current_wal->rows > 0 && r->current_wal->rows != rows_before)
 			r->current_wal->retry = 0;
 
-		/*
-		 * rows == 0 could possible indicate an filename confilct
-		 * retry filename with same lsn but with bigger suffix
-		 */
+		/* rows == 0 could possible indicate to an empty WAL */
 		if (r->current_wal->rows == 0) {
-			say_error("read zero records from %s, RETRY", r->current_wal->filename);
-			if (suffix++ < 10)
-				continue;
-
-			say_error("too many filename conflicters");
-			result = -1;
+			say_error("read zero records from %s", r->current_wal->filename);
 			break;
-		} else {
-			name = format_filename(NULL, r->wal_prefered_class,
-					       current_lsn, suffix + 1);
-			if (access(name, F_OK) == 0) {
-				say_error("found conflicter `%s' after successful reading", name);
-				result = -1;
-				break;
-			}
 		}
 
 		if (result == LOG_EOF) {
@@ -1013,15 +1104,14 @@ recover_remaining_wals(struct recovery_state *r)
 				 r->confirmed_lsn);
 			close_log(&r->current_wal);
 		}
-		suffix = 0;
 	}
 
 	/*
-	 * it's not a fatal error then last wal is empty
-	 * but if we lost some logs it is fatal error
+	 * It's not a fatal error when last WAL is empty, but if
+	 * we lost some logs it is a fatal error.
 	 */
 	if (wal_greatest_lsn > r->confirmed_lsn + 1) {
-		say_error("not all wals have been successfuly read");
+		say_error("not all WALs have been successfully read");
 		result = -1;
 	}
 
@@ -1044,7 +1134,7 @@ recover(struct recovery_state *r, i64 lsn)
 		result = recover_snap(r);
 		if (result < 0) {
 			if (greatest_lsn(r->snap_prefered_class) <= 0) {
-				say_crit("don't you forget to initialize storage with --init_storage switch?");
+				say_crit("didn't you forget to initialize storage with --init-storage switch?");
 				_exit(1);
 			}
 			panic("snapshot recovery failed");
@@ -1139,6 +1229,8 @@ recover_finalize(struct recovery_state *r)
 {
 	int result;
 
+	r->finalize = true;
+
 	if (ev_is_active(&r->wal_timer))
 		ev_timer_stop(&r->wal_timer);
 
@@ -1149,10 +1241,29 @@ recover_finalize(struct recovery_state *r)
 
 	result = recover_remaining_wals(r);
 	if (result < 0)
-		panic("unable to scucessfully finalize recovery");
+		panic("unable to successfully finalize recovery");
 
 	if (r->current_wal != NULL && result != LOG_EOF) {
 		say_warn("wal `%s' wasn't correctly closed", r->current_wal->filename);
+
+		if (!r->current_wal->is_inprogress) {
+			if (r->current_wal->rows == 0)
+			        /* Regular WAL (not inprogress) must contain at least one row */
+				panic("zero rows was successfully read from last WAL `%s'",
+				      r->current_wal->filename);
+		} else if (r->current_wal->rows == 0) {
+			/* Unlink empty inprogress WAL */
+			say_warn("unlink broken %s wal", r->current_wal->filename);
+			if (inprogress_log_unlink(r->current_wal->filename) != 0)
+				panic("can't unlink 'inprogress' wal");
+		} else if (r->current_wal->rows == 1) {
+			/* Rename inprogress wal with one row */
+			say_warn("rename unfinished %s wal", r->current_wal->filename);
+			if (inprogress_log_rename(r->current_wal->filename) != 0)
+				panic("can't rename 'inprogress' wal");
+		} else
+			panic("too many rows in inprogress WAL `%s'", r->current_wal->filename);
+
 		close_log(&r->current_wal);
 	}
 }
@@ -1168,11 +1279,9 @@ write_to_disk(void *_state, struct tbuf *t)
 {
 	static struct log_io *wal = NULL, *wal_to_close = NULL;
 	static ev_tstamp last_flush = 0;
-	static size_t rows = 0;
 	struct tbuf *reply, *header;
 	struct recovery_state *r = _state;
 	u32 result = 0;
-	int suffix = 0;
 
 	/* we're not running inside ev_loop, so update ev_now manually */
 	ev_now_update();
@@ -1186,11 +1295,17 @@ write_to_disk(void *_state, struct tbuf *t)
 
 	reply = tbuf_alloc(t->pool);
 
-	/* if there is filename conflict, try filename with lager suffix */
-	while (wal == NULL && suffix < 10) {
-		wal = open_for_write(r, r->wal_prefered_class, wal_write_request(t)->lsn, suffix);
-		suffix++;
+	if (wal == NULL)
+		/* Open WAL with '.inprogress' suffix. */
+		wal = open_for_write(r, r->wal_prefered_class, wal_write_request(t)->lsn, -1);
+	else if (wal->rows == 1) {
+		/* rename wal after first successfull write to name without inprogress suffix*/
+		if (inprogress_log_rename(wal->filename) != 0) {
+			say_error("can't rename inprogress wal");
+			goto fail;
+		}
 	}
+
 	if (wal_to_close != NULL) {
 		if (close_log(&wal_to_close) != 0)
 			goto fail;
@@ -1241,13 +1356,11 @@ write_to_disk(void *_state, struct tbuf *t)
 		last_flush = ev_now();
 	}
 
-	rows++;
-	if (wal->class->rows_per_file <= rows ||
+	wal->rows++;
+	if (wal->class->rows_per_file <= wal->rows ||
 	    (wal_write_request(t)->lsn + 1) % wal->class->rows_per_file == 0) {
 		wal_to_close = wal;
 		wal = NULL;
-		rows = 0;
-		suffix = 0;
 	}
 
 	tbuf_append(reply, &result, sizeof(result));
@@ -1294,6 +1407,9 @@ recover_init(const char *snap_dirname, const char *wal_dirname,
 	     int inbox_size, int flags, void *data)
 {
 	struct recovery_state *r = p0alloc(eter_pool, sizeof(*r));
+
+	if (rows_per_file <= 1)
+		panic("inacceptable value of 'rows_per_file'");
 
 	r->wal_timer.data = r;
 	r->row_handler = row_handler;
@@ -1415,13 +1531,19 @@ snapshot_save(struct recovery_state *r, void (*f) (struct log_io_iter *))
 
 	snap = open_for_write(r, r->snap_prefered_class, r->confirmed_lsn, -1);
 	if (snap == NULL)
-		panic("can't open snap for writing");
+		panic_status(diag_get_last_error()->code,
+			     "can't open snap for writing");
 
 	iter_open(snap, &i, write_rows);
 
 	if (r->snap_io_rate_limit > 0)
 		i.io_rate_limit = r->snap_io_rate_limit;
 
+	/*
+	 * While saving a snapshot, snapshot name is set to
+	 * <lsn>.snap.inprogress. When done, the snapshot is
+	 * renamed to <lsn>.snap.
+	 */
 	strncpy(final_filename, snap->filename, PATH_MAX);
 	dot = strrchr(final_filename, '.');
 	*dot = 0;
@@ -1432,8 +1554,11 @@ snapshot_save(struct recovery_state *r, void (*f) (struct log_io_iter *))
 	if (fsync(fileno(snap->f)) < 0)
 		panic("fsync");
 
-	if (rename(snap->filename, final_filename) != 0)
-		panic("rename");
+	if (link(snap->filename, final_filename) == -1)
+		panic_status(errno, "can't create hard link to snapshot");
+
+	if (unlink(snap->filename) == -1)
+		say_syserror("can't unlink 'inprogress' snapshot");
 
 	close_log(&snap);
 

@@ -7,6 +7,10 @@ import sys
 import signal
 import time
 import socket
+import daemon
+import glob
+import signal
+import traceback
 
 def wait_until_connected(host, port):
   """Wait until the server is started and accepting connections"""
@@ -21,9 +25,8 @@ def wait_until_connected(host, port):
       time.sleep(0.001)
 
 
-def prepare_gdb(args, vardir):
-  """Prepare server startup argumetns to run under gdb.
-  Create .gdbinit config file"""
+def prepare_gdb(args):
+  """Prepare server startup arguments to run under gdb."""
   if "TERM" in os.environ:
     term = os.environ["TERM"]
   else:
@@ -32,8 +35,14 @@ def prepare_gdb(args, vardir):
   if term not in ["xterm", "rxvt", "urxvt", "gnome-terminal", "konsole"]:
     raise RuntimeError("--gdb: unsupported terminal {0}".format(term))
 
-  gdbargs = '{0} -e gdb {1} -ex "break main" -ex "run"'.format(term, args[0])
-  args = [ "/bin/sh", "-c", gdbargs ]
+  args = [ term, "-e", "gdb", "-ex", "break main", "-ex", "run"] + args
+  return args
+
+
+def prepare_valgrind(args, valgrind_opts):
+  "Prepare server startup arguments to run under valgrind."
+  args = ([ "valgrind", "--log-file=valgrind.log", "--quiet" ] +
+          valgrind_opts.split(" ") + args)
   return args
 
 
@@ -86,17 +95,20 @@ class TarantoolSilverboxServer:
       if not silent:
         print "  Found old vardir, deleting..."
       self.kill_old_server()
-      if os.path.islink(vardir):
-        shutil.rmtree(os.readlink(vardir), ignore_errors = True)
-        os.remove(vardir)
-      else:
-        shutil.rmtree(vardir, ignore_errors = True)
-
-    if (self.args.mem == True and check_tmpfs_exists() and
-        os.path.basename(vardir) == vardir):
-      create_tmpfs_vardir(vardir)
+      for filename in (glob.glob(os.path.join(vardir, "*.snap")) +
+                      glob.glob(os.path.join(vardir, "*.inprogress")) +
+                      glob.glob(os.path.join(vardir, "*.xlog")) +
+                      glob.glob(os.path.join(vardir, "*.cfg")) +
+                      glob.glob(os.path.join(vardir, "*.log")) +
+                      glob.glob(os.path.join(vardir, "*.core.*")) +
+                      glob.glob(os.path.join(vardir, "core"))):
+        os.remove(filename)
     else:
-      os.mkdir(vardir)
+      if (self.args.mem == True and check_tmpfs_exists() and
+          os.path.basename(vardir) == vardir):
+        create_tmpfs_vardir(vardir)
+      else:
+        os.mkdir(vardir)
 
     shutil.copy(self.suite_ini["config"], self.args.vardir)
 
@@ -106,14 +118,16 @@ class TarantoolSilverboxServer:
                           stdout = subprocess.PIPE,
                           stderr = subprocess.PIPE)
 
-    version = subprocess.Popen([self.abspath_to_exe, "--version"],
-                               cwd = self.args.vardir,
-                               stdout = subprocess.PIPE).stdout.read().rstrip()
+    p = subprocess.Popen([self.abspath_to_exe, "--version"],
+                         cwd = self.args.vardir,
+                         stdout = subprocess.PIPE)
+    version = p.stdout.read().rstrip()
+    p.wait()
 
     if not silent:
       print "Starting {0} {1}.".format(os.path.basename(self.abspath_to_exe),
                                        version)
-    
+
   def start(self, silent = False):
 
     if self.is_started:
@@ -126,18 +140,31 @@ class TarantoolSilverboxServer:
 
     args = [self.abspath_to_exe]
 
-    if self.args.start_and_exit:
+    if (self.args.start_and_exit and
+        not self.args.valgrind and not self.args.gdb):
       args.append("--daemonize")
     if self.args.gdb:
-      args = prepare_gdb(args, self.args.vardir)
+      args = prepare_gdb(args)
+    elif self.args.valgrind:
+      args = prepare_valgrind(args, self.args.valgrind_opts)
 
-    self.server = pexpect.spawn(args[0], args[1:], cwd = self.args.vardir)
+    if self.args.start_and_exit and self.args.valgrind:
+      pid = os.fork()
+      if pid > 0:
+        os.wait()
+      else:
+        with daemon.DaemonContext(working_directory = self.args.vardir):
+          os.execvp(args[0], args)
+    else:
+      self.server = pexpect.spawn(args[0], args[1:], cwd = self.args.vardir)
+      if self.args.start_and_exit:
+        self.server.wait()
+
 # wait until the server is connectedk
-
     if self.args.gdb and self.args.start_and_exit:
       time.sleep(1)
     elif not self.args.start_and_exit and not self.args.gdb:
-      self.server.expect_exact("entering event loop")
+      self.server.expect_exact("I am primary")
     else:
       wait_until_connected(self.suite_ini["host"], self.suite_ini["port"])
 
@@ -165,13 +192,13 @@ class TarantoolSilverboxServer:
     self.start(True)
 
   def test_option(self, option_list_str):
-      args = [self.abspath_to_exe] + option_list_str.split()
-      print " ".join([os.path.basename(self.abspath_to_exe)] + args[1:])
-      output = subprocess.Popen(args,
-                                cwd = self.args.vardir,
-                                stdout = subprocess.PIPE,
-                                stderr = subprocess.STDOUT).stdout.read()
-      print output
+    args = [self.abspath_to_exe] + option_list_str.split()
+    print " ".join([os.path.basename(self.abspath_to_exe)] + args[1:])
+    output = subprocess.Popen(args,
+                          cwd = self.args.vardir,
+                          stdout = subprocess.PIPE,
+                          stderr = subprocess.STDOUT).stdout.read()
+    print output
 
 
   def find_exe(self):

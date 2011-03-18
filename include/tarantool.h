@@ -24,16 +24,16 @@
  * SUCH DAMAGE.
  */
 
-#ifndef TARANUL_H
-#define TARANUL_H
+#ifndef TARANTOOL_H
+#define TARANTOOL_H
 
 #include <tbuf.h>
 #include <util.h>
 #include <log_io.h>
-#include TARANTOOL_CONFIG
 
-struct recovery_state *recovery_state;
+extern struct recovery_state *recovery_state;
 void mod_init(void);
+struct tarantool_cfg;
 i32 mod_check_config(struct tarantool_cfg *conf);
 void mod_reload_config(struct tarantool_cfg *old_conf, struct tarantool_cfg *new_conf);
 int mod_cat(const char *filename);
@@ -48,7 +48,7 @@ extern const char *cfg_filename;
 extern bool init_storage, booting;
 extern char *binary_filename;
 i32 reload_cfg(struct tbuf *out);
-void snapshot(void *ev __unused__, int events __unused__);
+int snapshot(void *ev __unused__, int events __unused__);
 const char *tarantool_version(void);
 void tarantool_info(struct tbuf *out);
 double tarantool_uptime(void);
@@ -56,4 +56,4 @@ double tarantool_uptime(void);
 char **init_set_proc_title(int argc, char **argv);
 void set_proc_title(const char *format, ...);
 
-#endif
+#endif /* TARANTOOL_H */

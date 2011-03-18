@@ -52,6 +52,7 @@ ER = {
  0x00003102: ("ERR_CODE_NODE_NOT_FOUND"      ,  "")                                       ,
  0x00003702: ("ERR_CODE_NODE_FOUND"          ,  "")                                       ,
  0x00003802: ("ERR_CODE_INDEX_VIOLATION"     ,  "")                                       ,
+ 0x00003902: ("ERR_CODE_NO_SUCH_NAMESPACE"   ,  "No namespace with specified id exists")  ,
 }
 
 def format_error(return_code):
@@ -99,7 +100,9 @@ def opt_resize_buf(buf, newsize):
 
 
 def pack_field(value, buf, offset):
-  if type(value) is int:
+  if type(value) is int or type(value) is long:
+    if value > 0xffffffff:
+      raise RuntimeError("Integer value is too big")
     buf = opt_resize_buf(buf, offset + INT_FIELD_LEN)
     struct.pack_into("<cL", buf, offset, chr(INT_FIELD_LEN), value)
     offset += INT_FIELD_LEN + 1
@@ -151,8 +154,11 @@ def unpack_tuple(response, offset):
     offset += data_len
     if data_len == 4:
       (data,) = struct.unpack("<L", data)
-    res.append(data)
-  return str(res), offset
+      res.append((str(data)))
+    else:
+      res.append("'" + data + "'")
+
+  return '[' + ', '.join(res) + ']', offset
 
    
 class StatementPing:
@@ -209,7 +215,7 @@ class StatementUpdate(StatementPing):
     if return_code:
       return format_error(return_code)
     (result_code, row_count) = struct.unpack("<LL", response)
-    return "Insert OK, {0} row affected".format(row_count)
+    return "Update OK, {0} row affected".format(row_count)
 
 class StatementDelete(StatementPing):
   reqeust_type = DELETE_REQUEST_TYPE
@@ -237,16 +243,22 @@ class StatementDelete(StatementPing):
 class StatementSelect(StatementPing):
   reqeust_type = SELECT_REQUEST_TYPE
 
-  def __init__(self, table_name, where):
+  def __init__(self, table_name, where, limit):
     self.namespace_no = table_name
-    if where:
-      (self.index_no, key) = where
-      self.key = [key]
-    else:
+    self.index_no = None
+    self.key_list = []
+    if not where:
       self.index_no = 0
-      self.key = [""]
+      self.key_list = ["",]
+    else:
+      for (index_no, key) in where:
+        self.key_list.append(key)
+        if self.index_no == None:
+          self.index_no = index_no
+        elif self.index_no != index_no:
+          raise RuntimeError("All key values in a disjunction must refer to the same index")
     self.offset = 0
-    self.limit = 0xffffffff
+    self.limit = limit
 
   def pack(self):
     buf = ctypes.create_string_buffer(PACKET_BUF_LEN)
@@ -255,8 +267,10 @@ class StatementSelect(StatementPing):
                      self.index_no,
                      self.offset,
                      self.limit,
-                     1)
-    (buf, offset) = pack_tuple(self.key, buf, SELECT_REQUEST_FIXED_LEN)
+                     len(self.key_list))
+    offset = SELECT_REQUEST_FIXED_LEN
+    for key in self.key_list:
+      (buf, offset) = pack_tuple([key], buf, offset)
 
     return buf[:offset]
 
