@@ -12,4 +12,5 @@ statistics:
   SELECT:        { rps:  0    , total:  0           }
   UPDATE_FIELDS: { rps:  0    , total:  0           }
   DELETE:        { rps:  0    , total:  0           }
+  GET_ALL_KEYS:  { rps:  0    , total:  0           }
 ...

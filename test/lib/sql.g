@@ -4,7 +4,7 @@ import re
 object_no_re = re.compile("[a-z_]*", re.I)
 
 def create_select_statement(select_list, ident, opt_where, opt_limit):
-  if select_list != '*':
+  if select_list == '\*':
     return sql_ast.StatementSelect(ident, opt_where, opt_limit)
   else:
     return sql_ast.StatementSelectAllKeys(ident)
