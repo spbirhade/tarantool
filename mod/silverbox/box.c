@@ -1341,7 +1341,7 @@ box_master_or_slave(struct tarantool_cfg *cfg)
 				}
 			} else {
 				say_crit("killing fiber %i", remote_recover_fid);
-				fiber_raise(remote_recover, remote_recover->exc, FIBER_EXIT);
+				fiber_raise(remote_recover, remote_recover->exc2, FIBER_EXIT);
 
 			}
 			remote_recover = NULL;

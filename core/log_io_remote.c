@@ -132,7 +132,7 @@ pull_from_remote(void *state)
 	struct remote_state *h = state;
 	struct tbuf *row;
 
-	switch (setjmp(fiber->exc)) {
+	switch (setjmp(fiber->exc2)) {
 		case 0:
 			break;
 

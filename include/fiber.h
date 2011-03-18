@@ -76,7 +76,7 @@ struct fiber {
 
 	struct ring *inbox;
 
-	jmp_buf exc;
+	jmp_buf exc, exc2;
 	const char *errstr;
 
 	const char *name;
