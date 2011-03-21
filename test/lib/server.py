@@ -107,9 +107,12 @@ class Server(object):
     The server working directory is taken from 'vardir',
     specified in the program options."""
 
-    if vardir != None: self.vardir = vardir
-    if binary != None: self.binary = os.path.abspath(binary)
-    if mem != None: self.mem = mem
+    if vardir != None:
+      self.vardir = vardir
+    if binary != None:
+      self.binary = os.path.abspath(binary)
+    if mem != None:
+        self.mem = mem
 
     self.pidfile = os.path.abspath(os.path.join(self.vardir, self.pidfile))
     self.valgrind_log = os.path.abspath(os.path.join(self.vardir, self.valgrind_log))

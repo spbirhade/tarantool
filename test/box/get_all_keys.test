@@ -1,9 +1,9 @@
 # encoding: tarantool
 
 # start test with clean storage
-server.stop(True)
-server.install(True)
-server.start(True)
+server.stop()
+server.deploy()
+server.start()
 
 exec sql "ping"
 
@@ -23,3 +23,5 @@ exec sql "select k0 from t0"
 
 exec sql "delete from t0 where k0 = 3"
 exec sql "select k0 from t0"
+
+# vim: syntax=python
