@@ -63,9 +63,11 @@ wal_feeder_port=0, ro
 
 namespace = [
   {
-    enabled = -1, required
-    cardinality = -1
-    estimated_rows = 0
+    enabled = -1, ro, required
+    cardinality = -1, ro
+    estimated_rows = 0, ro
+    # Namespace limit in MBytes (0 stands for unlimited)
+    limit = 0.0
     index = [
       {
         type = "", required
@@ -77,6 +79,6 @@ namespace = [
           }, ro,  required
         ], required
       }, ro, required
-    ], required
-  }, ro
+    ], ro, required
+  }
 ], ro, required

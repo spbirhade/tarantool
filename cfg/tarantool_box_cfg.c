@@ -73,6 +73,7 @@ acceptDefault_name__namespace(tarantool_cfg_namespace *c) {
 	c->enabled = -1;
 	c->cardinality = -1;
 	c->estimated_rows = 0;
+	c->limit = 0;
 	c->index = NULL;
 	return 0;
 }
@@ -213,6 +214,10 @@ static NameAtom _name__namespace__cardinality[] = {
 static NameAtom _name__namespace__estimated_rows[] = {
 	{ "namespace", -1, _name__namespace__estimated_rows + 1 },
 	{ "estimated_rows", -1, NULL }
+};
+static NameAtom _name__namespace__limit[] = {
+	{ "namespace", -1, _name__namespace__limit + 1 },
+	{ "limit", -1, NULL }
 };
 static NameAtom _name__namespace__index[] = {
 	{ "namespace", -1, _name__namespace__index + 1 },
@@ -780,6 +785,20 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_RDONLY;
 		c->namespace[opt->name->index]->estimated_rows = i32;
 	}
+	else if ( cmpNameAtoms( opt->name, _name__namespace__limit) ) {
+		if (opt->paramType != numberType )
+			return CNF_WRONGTYPE;
+		ARRAYALLOC(c->namespace, opt->name->index + 1, _name__namespace, check_rdonly, CNF_FLAG_STRUCT_NEW | CNF_FLAG_STRUCT_NOTSET);
+		if (c->namespace[opt->name->index]->__confetti_flags & CNF_FLAG_STRUCT_NEW)
+			check_rdonly = 0;
+		c->namespace[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		c->namespace[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		double dbl = strtod(opt->paramValue.numberval, NULL);
+		if ( (dbl == 0 || dbl == -HUGE_VAL || dbl == HUGE_VAL) && errno == ERANGE)
+			return CNF_WRONGRANGE;
+		c->namespace[opt->name->index]->limit = dbl;
+	}
 	else if ( cmpNameAtoms( opt->name, _name__namespace__index) ) {
 		if (opt->paramType != arrayType )
 			return CNF_WRONGTYPE;
@@ -1036,6 +1055,7 @@ typedef enum IteratorState {
 	S_name__namespace__enabled,
 	S_name__namespace__cardinality,
 	S_name__namespace__estimated_rows,
+	S_name__namespace__limit,
 	S_name__namespace__index,
 	S_name__namespace__index__type,
 	S_name__namespace__index__unique,
@@ -1451,6 +1471,7 @@ again:
 		case S_name__namespace__enabled:
 		case S_name__namespace__cardinality:
 		case S_name__namespace__estimated_rows:
+		case S_name__namespace__limit:
 		case S_name__namespace__index:
 		case S_name__namespace__index__type:
 		case S_name__namespace__index__unique:
@@ -1491,6 +1512,17 @@ again:
 						}
 						sprintf(*v, "%"PRId32, c->namespace[i->idx_name__namespace]->estimated_rows);
 						snprintf(buf, PRINTBUFLEN-1, "namespace[%d].estimated_rows", i->idx_name__namespace);
+						i->state = S_name__namespace__limit;
+						return buf;
+					case S_name__namespace__limit:
+						*v = malloc(32);
+						if (*v == NULL) {
+							free(i);
+							out_warning(CNF_NOMEMORY, "No memory to output value");
+							return NULL;
+						}
+						sprintf(*v, "%g", c->namespace[i->idx_name__namespace]->limit);
+						snprintf(buf, PRINTBUFLEN-1, "namespace[%d].limit", i->idx_name__namespace);
 						i->state = S_name__namespace__index;
 						return buf;
 					case S_name__namespace__index:
@@ -1789,6 +1821,7 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 			dst->namespace[i->idx_name__namespace]->enabled = src->namespace[i->idx_name__namespace]->enabled;
 			dst->namespace[i->idx_name__namespace]->cardinality = src->namespace[i->idx_name__namespace]->cardinality;
 			dst->namespace[i->idx_name__namespace]->estimated_rows = src->namespace[i->idx_name__namespace]->estimated_rows;
+			dst->namespace[i->idx_name__namespace]->limit = src->namespace[i->idx_name__namespace]->limit;
 
 			dst->namespace[i->idx_name__namespace]->index = NULL;
 			if (src->namespace[i->idx_name__namespace]->index != NULL) {
@@ -2117,6 +2150,13 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->namespace[]->estimated_rows");
 
 			return diff;
+		}
+		if (!only_check_rdonly) {
+			if (c1->namespace[i1->idx_name__namespace]->limit != c2->namespace[i2->idx_name__namespace]->limit) {
+				snprintf(diff, PRINTBUFLEN - 1, "%s", "c->namespace[]->limit");
+
+				return diff;
+			}
 		}
 
 		i1->idx_name__namespace__index = 0;

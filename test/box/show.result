@@ -64,6 +64,7 @@ configuration:
   namespace[0].enabled: "1"
   namespace[0].cardinality: "-1"
   namespace[0].estimated_rows: "0"
+  namespace[0].limit: "0"
   namespace[0].index[0].type: "HASH"
   namespace[0].index[0].unique: "1"
   namespace[0].index[0].key_field[0].fieldno: "0"
@@ -105,4 +106,7 @@ info:
   recovery_lag: 0.000
   recovery_last_update: 0.000
   status: primary
+  namespace_stat:
+    namespace_0:
+      usage: 0
 ...

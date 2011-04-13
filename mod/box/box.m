@@ -232,7 +232,7 @@ tuple_free(struct box_tuple *tuple)
 }
 
 static void
-tuple_ref(struct box_tuple *tuple, int count)
+tuple_ref(struct box_txn *txn, struct box_tuple *tuple, int count)
 {
 	assert(tuple->refs + count >= 0);
 	tuple->refs += count;
@@ -240,8 +240,10 @@ tuple_ref(struct box_tuple *tuple, int count)
 	if (tuple->refs > 0)
 		tuple->flags &= ~NEW;
 
-	if (tuple->refs == 0)
+	if (tuple->refs == 0) {
+		tnt_namespace_update_usage(&namespace[txn->n], -SIZEOF_TUPLE(tuple));
 		tuple_free(tuple);
+	}
 }
 
 void
@@ -249,7 +251,7 @@ tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple)
 {
 	say_debug("tuple_txn_ref(%p)", tuple);
 	tbuf_append(txn->ref_tuples, &tuple, sizeof(struct box_tuple *));
-	tuple_ref(tuple, +1);
+	tuple_ref(txn, tuple, +1);
 }
 
 static void __attribute__((noinline))
@@ -265,6 +267,7 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 
 	txn->tuple = tuple_alloc(data->len);
 	tuple_txn_ref(txn, txn->tuple);
+	tnt_namespace_update_usage(&namespace[txn->n], SIZEOF_TUPLE(txn->tuple));
 	txn->tuple->cardinality = cardinality;
 	memcpy(txn->tuple->data, data->data, data->len);
 
@@ -333,12 +336,12 @@ commit_replace(struct box_txn *txn)
 		foreach_index(txn->n, index)
 			index->replace(index, txn->old_tuple, txn->tuple);
 
-		tuple_ref(txn->old_tuple, -1);
+		tuple_ref(txn, txn->old_tuple, -1);
 	}
 
 	if (txn->tuple != NULL) {
 		txn->tuple->flags &= ~GHOST;
-		tuple_ref(txn->tuple, +1);
+		tuple_ref(txn, txn->tuple, +1);
 	}
 }
 
@@ -565,6 +568,7 @@ prepare_update_fields(struct box_txn *txn, struct tbuf *data)
 		bsize += fields[i]->len + varint32_sizeof(fields[i]->len);
 	txn->tuple = tuple_alloc(bsize);
 	tuple_txn_ref(txn, txn->tuple);
+	tnt_namespace_update_usage(&namespace[txn->n], SIZEOF_TUPLE(txn->tuple));
 	txn->tuple->cardinality = txn->old_tuple->cardinality;
 
 	uint8_t *p = txn->tuple->data;
@@ -720,7 +724,7 @@ commit_delete(struct box_txn *txn)
 
 	foreach_index(txn->n, index)
 		index->remove(index, txn->old_tuple);
-	tuple_ref(txn->old_tuple, -1);
+	tuple_ref(txn, txn->old_tuple, -1);
 }
 
 static bool
@@ -791,7 +795,7 @@ txn_cleanup(struct box_txn *txn)
 
 	while (i-- > 0) {
 		say_debug("tuple_txn_unref(%p)", *tuple);
-		tuple_ref(*tuple++, -1);
+		tuple_ref(txn, *tuple++, -1);
 	}
 
 	/* mark txn as clean */
@@ -1081,6 +1085,10 @@ custom_init(void)
 		namespace[i].cardinality = cfg.namespace[i]->cardinality;
 		int estimated_rows = cfg.namespace[i]->estimated_rows;
 
+		namespace[i].limit = cfg.namespace[i]->limit == 0. ?
+			SIZE_MAX :
+			cfg.namespace[i]->limit * (1 << 20);
+
 		if (cfg.namespace[i]->index == NULL)
 			panic("(namespace = %" PRIu32 ") at least one index must be defined", i);
 
@@ -1206,7 +1214,16 @@ box_process(struct box_txn *txn, u32 op, struct tbuf *request_data)
 	@try {
 		txn_begin(txn, op, request_data);
 		box_dispach(txn, request_data);
-		txn_commit(txn);
+		/*
+		 * Verify that there isn't any exception during txn_commit.
+		 * Panic if one has happened.
+		 */
+		@try {
+			txn_commit(txn);
+		}
+		@catch (id e) {
+			panic("exception `%s' during txn_commit", [e name]);
+		}
 
 		return ERR_CODE_OK;
 	}
@@ -1359,15 +1376,56 @@ memcached_bound_to_primary(void *data __attribute__((unused)))
 }
 
 i32
-mod_check_config(struct tarantool_cfg *conf __attribute__((unused)))
+mod_check_config(struct tarantool_cfg *conf)
 {
+	if (!namespace)
+		return 0;
+
+	for (u32 i = 0; i < namespace_count; i++) {
+		size_t new_limit;
+
+		if (conf->namespace[i] == NULL)
+			break;
+
+		if (!CNF_STRUCT_DEFINED(conf->namespace[i]))
+			continue;
+
+		if (!namespace[i].enabled)
+			continue;
+
+		new_limit = conf->namespace[i]->limit == 0 ?
+			SIZE_MAX :
+			conf->namespace[i]->limit * (1 << 20);
+		if (namespace[i].usage > new_limit) {
+			out_warning(0, "Could not change namespace[%u] limit: "
+				       "it's lower than current namespace usage", i);
+
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
 void
 mod_reload_config(struct tarantool_cfg *old_conf __attribute__((unused)),
-		  struct tarantool_cfg *new_conf __attribute__((unused)))
+		  struct tarantool_cfg *new_conf)
 {
+	for (u32 i = 0; i < namespace_count; i++) {
+		if (new_conf->namespace[i] == NULL)
+			break;
+
+		if (!CNF_STRUCT_DEFINED(new_conf->namespace[i]))
+			continue;
+
+		if (!namespace[i].enabled)
+			continue;
+
+		 namespace[i].limit= new_conf->namespace[i]->limit == 0 ?
+			SIZE_MAX :
+			new_conf->namespace[i]->limit * (1 << 20);
+	}
+
 	return;
 }
 
@@ -1379,6 +1437,7 @@ mod_init(void)
 	namespace = palloc(eter_pool, sizeof(struct namespace) * namespace_count);
 	for (int i = 0; i < namespace_count; i++) {
 		namespace[i].enabled = false;
+		namespace[i].usage = 0;
 		for (int j = 0; j < MAX_IDX; j++)
 			namespace[i].index[j].key_cardinality = 0;
 	}
@@ -1534,6 +1593,15 @@ mod_info(struct tbuf *out)
 	tbuf_printf(out, "  recovery_last_update: %.3f" CRLF,
 		    recovery_state->recovery_last_update_tstamp);
 	tbuf_printf(out, "  status: %s" CRLF, status);
+
+	tbuf_printf(out, "  namespace_stat:" CRLF);
+	for (u32 i = 0; i < namespace_count; ++i) {
+		if (!namespace[i].enabled)
+			continue;
+
+		tbuf_printf(out, "    namespace_%u:" CRLF, i);
+		tbuf_printf(out, "      usage: %zu" CRLF, namespace[i].usage);
+	}
 }
 
 void

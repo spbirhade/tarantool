@@ -1,0 +1,95 @@
+
+#
+# Test cases for: https://blueprints.launchpad.net/tarantool/+spec/namespace-limits
+# Limit the total amount of memory consumed by a namespace
+# 
+
+
+#
+# check namespace limit
+#  insert several tuples
+#
+
+insert into t0 values (0, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (1, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (2, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (3, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (4, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (5, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (6, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (7, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (8, 'tuple')
+An error occurred: ERR_CODE_NAMESPACE_LIMIT, 'Namespace limit has been exceeded'
+insert into t0 values (9, 'tuple')
+An error occurred: ERR_CODE_NAMESPACE_LIMIT, 'Namespace limit has been exceeded'
+usage = 376
+
+#
+#  free some space in namespace
+#
+
+delete from t0 where k0 = 0
+Delete OK, 1 row affected
+delete from t0 where k0 = 1
+Delete OK, 1 row affected
+delete from t0 where k0 = 2
+Delete OK, 1 row affected
+usage = 235
+insert into t0 values (8, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (9, 'tuple')
+Insert OK, 1 row affected
+usage = 329
+
+#
+#  try to decrease namespace limit in runtime
+#
+
+reload configuration
+---
+fail:
+ - Could not change namespace[0] limit: it's lower than current namespace usage
+...
+
+#
+#  try to increase namespace limit in runtime
+#
+
+reload configuration
+---
+ok
+...
+
+#
+#  check that limit is changed: insert a lot of tuples
+#
+
+insert into t0 values (10, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (11, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (12, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (13, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (14, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (15, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (16, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (17, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (18, 'tuple')
+Insert OK, 1 row affected
+insert into t0 values (19, 'tuple')
+Insert OK, 1 row affected
+usage = 799

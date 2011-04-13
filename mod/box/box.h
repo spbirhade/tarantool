@@ -26,8 +26,11 @@
  * SUCH DAMAGE.
  */
 
-#include <mod/box/index.h>
+#include <cfg/warning.h>
 #include <exceptions.h>
+#include <iproto.h>
+#include <mod/box/index.h>
+#include <say.h>
 #include <tbuf.h>
 
 @interface tnt_BoxException: tnt_Exception {
@@ -55,6 +58,9 @@ struct namespace {
 	bool enabled;
 	int cardinality;
 	struct index index[MAX_IDX];
+
+	size_t usage;
+	size_t limit;
 };
 
 extern struct namespace *namespace;
@@ -67,6 +73,8 @@ struct box_tuple {
 	u32 cardinality;
 	u8 data[0];
 } __attribute__((packed));
+
+#define SIZEOF_TUPLE(tuple) (sizeof(struct box_tuple) + (tuple)->bsize)
 
 struct box_txn {
 	u16 op;
@@ -137,6 +145,24 @@ enum box_mode {
 	_(DELETE, 20)
 
 ENUM(messages, MESSAGES);
+
+static void __attribute__((unused, always_inline))
+tnt_namespace_update_usage(struct namespace *namespace, ssize_t bytes)
+{
+	say_debug("usage = %zu limit = %zu bytes = %zi", namespace->usage, namespace->limit, bytes);
+
+	if (bytes < 0)
+		assert(namespace->usage >= -bytes);
+	else
+		assert(namespace->usage <= SIZE_MAX - bytes);
+	namespace->usage += bytes;
+
+	if (namespace->usage > namespace->limit)
+		if (bytes > 0) {
+			tnt_raise(tnt_BoxException, reason:"namespace limit is exceeded"
+						    errcode:ERR_CODE_NAMESPACE_LIMIT);
+		}
+}
 
 struct box_txn *txn_alloc(u32 flags);
 u32 box_process(struct box_txn *txn, u32 op, struct tbuf *request_data);

@@ -29,6 +29,9 @@ typedef struct tarantool_cfg_namespace {
 	int32_t	enabled;
 	int32_t	cardinality;
 	int32_t	estimated_rows;
+
+	/* Namespace limit in MBytes (0 stands for unlimited) */
+	double	limit;
 	tarantool_cfg_namespace_index**	index;
 } tarantool_cfg_namespace;
 
