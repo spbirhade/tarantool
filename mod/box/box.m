@@ -316,7 +316,7 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 		 * txn_commit().
 		 */
 		foreach_index(txn->n, index)
-			index->replace(txn,index, NULL, txn->tuple);
+			index->replace(txn, index, NULL, txn->tuple);
 	}
 
 	if (!(txn->flags & BOX_QUIET)) {
@@ -741,7 +741,6 @@ txn_alloc(u32 flags)
 	struct box_txn *txn = p0alloc(fiber->pool, sizeof(*txn));
 	txn->ref_tuples = tbuf_alloc(fiber->pool);
 	txn->flags = flags;
-	txn->usage = 0;
 	return txn;
 }
 
