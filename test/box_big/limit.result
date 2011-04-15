@@ -31,6 +31,7 @@ An error occurred: ERR_CODE_NAMESPACE_LIMIT, 'Namespace limit has been exceeded'
 insert into t0 values (9, 'tuple')
 An error occurred: ERR_CODE_NAMESPACE_LIMIT, 'Namespace limit has been exceeded'
 usage = 376
+usage% = 89.7
 
 #
 #  free some space in namespace
@@ -43,11 +44,13 @@ Delete OK, 1 row affected
 delete from t0 where k0 = 2
 Delete OK, 1 row affected
 usage = 235
+usage% = 56.1
 insert into t0 values (8, 'tuple')
 Insert OK, 1 row affected
 insert into t0 values (9, 'tuple')
 Insert OK, 1 row affected
 usage = 329
+usage% = 78.5
 
 #
 #  try to decrease namespace limit in runtime
@@ -93,3 +96,17 @@ Insert OK, 1 row affected
 insert into t0 values (19, 'tuple')
 Insert OK, 1 row affected
 usage = 799
+usage% = 76.2
+
+#
+#  check usage updates after replace/update
+#
+
+insert into t0 values (19, 'bigger tuple')
+Insert OK, 1 row affected
+usage = 806
+usage% = 76.9
+update t0 set k1 = 'tuple' where k0 = 19
+Update OK, 1 row affected
+usage = 799
+usage% = 76.2

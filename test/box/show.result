@@ -109,4 +109,5 @@ info:
   namespace_stat:
     namespace_0:
       usage: 0
+      usage%: 0.0
 ...

@@ -232,7 +232,7 @@ tuple_free(struct box_tuple *tuple)
 }
 
 static void
-tuple_ref(struct box_txn *txn, struct box_tuple *tuple, int count)
+tuple_ref(struct box_tuple *tuple, int count)
 {
 	assert(tuple->refs + count >= 0);
 	tuple->refs += count;
@@ -240,10 +240,8 @@ tuple_ref(struct box_txn *txn, struct box_tuple *tuple, int count)
 	if (tuple->refs > 0)
 		tuple->flags &= ~NEW;
 
-	if (tuple->refs == 0) {
-		tnt_namespace_update_usage(&namespace[txn->n], -SIZEOF_TUPLE(tuple));
+	if (tuple->refs == 0)
 		tuple_free(tuple);
-	}
 }
 
 void
@@ -251,7 +249,7 @@ tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple)
 {
 	say_debug("tuple_txn_ref(%p)", tuple);
 	tbuf_append(txn->ref_tuples, &tuple, sizeof(struct box_tuple *));
-	tuple_ref(txn, tuple, +1);
+	tuple_ref(tuple, +1);
 }
 
 static void __attribute__((noinline))
@@ -267,14 +265,16 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 
 	txn->tuple = tuple_alloc(data->len);
 	tuple_txn_ref(txn, txn->tuple);
-	tnt_namespace_update_usage(&namespace[txn->n], SIZEOF_TUPLE(txn->tuple));
 	txn->tuple->cardinality = cardinality;
 	memcpy(txn->tuple->data, data->data, data->len);
 
 	txn->old_tuple = txn->index->find_by_tuple(txn->index, txn->tuple);
 
-	if (txn->old_tuple != NULL)
+	if (txn->old_tuple != NULL) {
 		tuple_txn_ref(txn, txn->old_tuple);
+		tnt_namespace_capture_usage(txn, -SIZEOF_TUPLE(txn->old_tuple));
+	}
+	tnt_namespace_capture_usage(txn, SIZEOF_TUPLE(txn->tuple));
 
 	if (txn->flags & BOX_ADD && txn->old_tuple != NULL)
 		tnt_raise(tnt_BoxException, reason:"tuple found" errcode:ERR_CODE_NODE_FOUND);
@@ -316,7 +316,7 @@ prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 		 * txn_commit().
 		 */
 		foreach_index(txn->n, index)
-			index->replace(index, NULL, txn->tuple);
+			index->replace(txn,index, NULL, txn->tuple);
 	}
 
 	if (!(txn->flags & BOX_QUIET)) {
@@ -334,14 +334,14 @@ commit_replace(struct box_txn *txn)
 {
 	if (txn->old_tuple != NULL) {
 		foreach_index(txn->n, index)
-			index->replace(index, txn->old_tuple, txn->tuple);
+			index->replace(txn, index, txn->old_tuple, txn->tuple);
 
-		tuple_ref(txn, txn->old_tuple, -1);
+		tuple_ref(txn->old_tuple, -1);
 	}
 
 	if (txn->tuple != NULL) {
 		txn->tuple->flags &= ~GHOST;
-		tuple_ref(txn, txn->tuple, +1);
+		tuple_ref(txn->tuple, +1);
 	}
 }
 
@@ -352,7 +352,7 @@ rollback_replace(struct box_txn *txn)
 
 	if (txn->tuple && txn->tuple->flags & GHOST) {
 		foreach_index(txn->n, index)
-			index->remove(index, txn->tuple);
+			index->remove(txn, index, txn->tuple);
 	}
 }
 
@@ -504,6 +504,7 @@ prepare_update_fields(struct box_txn *txn, struct tbuf *data)
 
 		goto out;
 	}
+	tnt_namespace_capture_usage(txn, -SIZEOF_TUPLE(txn->old_tuple));
 
 	lock_tuple(txn, txn->old_tuple);
 
@@ -568,7 +569,7 @@ prepare_update_fields(struct box_txn *txn, struct tbuf *data)
 		bsize += fields[i]->len + varint32_sizeof(fields[i]->len);
 	txn->tuple = tuple_alloc(bsize);
 	tuple_txn_ref(txn, txn->tuple);
-	tnt_namespace_update_usage(&namespace[txn->n], SIZEOF_TUPLE(txn->tuple));
+	tnt_namespace_capture_usage(txn, SIZEOF_TUPLE(txn->tuple));
 	txn->tuple->cardinality = txn->old_tuple->cardinality;
 
 	uint8_t *p = txn->tuple->data;
@@ -723,8 +724,9 @@ commit_delete(struct box_txn *txn)
 		return;
 
 	foreach_index(txn->n, index)
-		index->remove(index, txn->old_tuple);
-	tuple_ref(txn, txn->old_tuple, -1);
+		index->remove(txn, index, txn->old_tuple);
+	tuple_ref(txn->old_tuple, -1);
+	tnt_namespace_capture_usage(txn, -SIZEOF_TUPLE(txn->old_tuple));
 }
 
 static bool
@@ -739,6 +741,7 @@ txn_alloc(u32 flags)
 	struct box_txn *txn = p0alloc(fiber->pool, sizeof(*txn));
 	txn->ref_tuples = tbuf_alloc(fiber->pool);
 	txn->flags = flags;
+	txn->usage = 0;
 	return txn;
 }
 
@@ -795,7 +798,7 @@ txn_cleanup(struct box_txn *txn)
 
 	while (i-- > 0) {
 		say_debug("tuple_txn_unref(%p)", *tuple);
-		tuple_ref(txn, *tuple++, -1);
+		tuple_ref(*tuple++, -1);
 	}
 
 	/* mark txn as clean */
@@ -831,6 +834,8 @@ txn_commit(struct box_txn *txn)
 			commit_delete(txn);
 		else
 			commit_replace(txn);
+
+		namespace[txn->n].usage += txn->usage;
 	}
 
 	if (txn->flags & BOX_QUIET)
@@ -1601,6 +1606,8 @@ mod_info(struct tbuf *out)
 
 		tbuf_printf(out, "    namespace_%u:" CRLF, i);
 		tbuf_printf(out, "      usage: %zu" CRLF, namespace[i].usage);
+		tbuf_printf(out, "      usage%%: %.1f" CRLF,
+			    (float)(100 * namespace[i].usage) / namespace[i].limit);
 	}
 }
 

@@ -59,20 +59,25 @@ struct tree_index_member {
 #define SIZEOF_TREE_INDEX_MEMBER(index) \
 	(sizeof(struct tree_index_member) + sizeof(struct field) * (index)->key_cardinality)
 
+#define SIZEOF_HASH_INDEX_MEMBER(index) \
+	(sizeof((index)->idx.hash->keys[0]) + sizeof((index)->idx.hash->vals[0]))
+
 #include <third_party/sptree.h>
 SPTREE_DEF(str_t, realloc);
+
+struct box_txn;
 
 struct index {
 	bool enabled;
 
 	bool unique;
 
-	struct box_tuple *(*find) (struct index * index, void *key);	/* only for unique lookups */
-	struct box_tuple *(*find_by_tuple) (struct index * index, struct box_tuple * pattern);
-	void (*remove) (struct index * index, struct box_tuple *);
-	void (*replace) (struct index * index, struct box_tuple *, struct box_tuple *);
-	void (*iterator_init) (struct index *, struct tree_index_member * pattern);
-	struct box_tuple *(*iterator_next) (struct index *, struct tree_index_member * pattern);
+	struct box_tuple *(*find) (struct index * index, void *key); /* only for unique lookups */
+	struct box_tuple *(*find_by_tuple) (struct index *, struct box_tuple * pattern);
+	void (*remove) (struct box_txn *, struct index *, struct box_tuple *);
+	void (*replace) (struct box_txn *, struct index *, struct box_tuple *, struct box_tuple *);
+	void (*iterator_init) (struct index *, struct tree_index_member *);
+	struct box_tuple *(*iterator_next) (struct index *, struct tree_index_member *);
 	union {
 		khash_t(lstr_ptr_map) * str_hash;
 		khash_t(int_ptr_map) * int_hash;
@@ -116,7 +121,6 @@ struct tree_index_member * alloc_search_pattern(struct index *index, int key_car
 void index_iterator_init_tree_str(struct index *self, struct tree_index_member *pattern);
 struct box_tuple * index_iterator_next_tree_str(struct index *self, struct tree_index_member *pattern);
 
-struct box_txn;
 void validate_indeces(struct box_txn *txn);
 void build_indexes(void);
 

@@ -296,7 +296,7 @@ index_find_tree_by_tuple(struct index *self, struct box_tuple *tuple)
 }
 
 static void
-index_remove_hash_num(struct index *self, struct box_tuple *tuple)
+index_remove_hash_num(struct box_txn *txn, struct index *self, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
 	unsigned int key_size = load_varint32(&key);
@@ -306,14 +306,14 @@ index_remove_hash_num(struct index *self, struct box_tuple *tuple)
 		tnt_raise(tnt_BoxException,
 			  reason:"key is not u32" errcode:ERR_CODE_ILLEGAL_PARAMS);
 	assoc_delete(int_ptr_map, self->idx.int_hash, num);
-	tnt_namespace_update_usage(self->namespace, -(sizeof(num) + sizeof(tuple)));
+	tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	say_debug("index_remove_hash_num(self:%p, key:%i)", self, num);
 #endif
 }
 
 static void
-index_remove_hash_num64(struct index *self, struct box_tuple *tuple)
+index_remove_hash_num64(struct box_txn *txn, struct index *self, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
 	unsigned int key_size = load_varint32(&key);
@@ -323,18 +323,18 @@ index_remove_hash_num64(struct index *self, struct box_tuple *tuple)
 		tnt_raise(tnt_BoxException,
 			  reason:"key is not u64" errcode:ERR_CODE_ILLEGAL_PARAMS);
 	assoc_delete(int64_ptr_map, self->idx.int64_hash, num);
-	tnt_namespace_update_usage(self->namespace, -(sizeof(num) + sizeof(tuple)));
+	tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	say_debug("index_remove_hash_num(self:%p, key:%"PRIu64")", self, num);
 #endif
 }
 
 static void
-index_remove_hash_str(struct index *self, struct box_tuple *tuple)
+index_remove_hash_str(struct box_txn *txn, struct index *self, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
 	assoc_delete(lstr_ptr_map, self->idx.str_hash, key);
-	tnt_namespace_update_usage(self->namespace, -(sizeof(key) + sizeof(tuple)));
+	tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	u32 size = load_varint32(&key);
 	say_debug("index_remove_hash_str(self:%p, key:'%.*s')", self, size, (u8 *)key);
@@ -342,22 +342,20 @@ index_remove_hash_str(struct index *self, struct box_tuple *tuple)
 }
 
 static void
-index_remove_tree_str(struct index *self, struct box_tuple *tuple)
+index_remove_tree_str(struct box_txn *txn, struct index *self, struct box_tuple *tuple)
 {
 	struct tree_index_member *member = tuple2tree_index_member(self, tuple, NULL);
 	sptree_str_t_delete(self->idx.tree, member);
-	tnt_namespace_update_usage(self->namespace, -SIZEOF_TREE_INDEX_MEMBER(self));
+	tnt_namespace_capture_usage(txn, -SIZEOF_TREE_INDEX_MEMBER(self));
 }
 
 static void
-index_replace_hash_num(struct index *self, struct box_tuple *old_tuple, struct box_tuple *tuple)
+index_replace_hash_num(struct box_txn *txn, struct index *self,
+		       struct box_tuple *old_tuple, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
 	u32 key_size = load_varint32(&key);
 	u32 num = *(u32 *)key;
-
-	/* see index_replace_tree_str for comments */
-	tnt_namespace_update_usage(self->namespace, sizeof(num) + sizeof(tuple));
 
 	if (key_size != 4)
 		tnt_raise(tnt_BoxException,
@@ -368,9 +366,11 @@ index_replace_hash_num(struct index *self, struct box_tuple *old_tuple, struct b
 		load_varint32(&old_key);
 		u32 old_num = *(u32 *)old_key;
 		assoc_delete(int_ptr_map, self->idx.int_hash, old_num);
+		tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 	}
 
 	assoc_replace(int_ptr_map, self->idx.int_hash, num, tuple);
+	tnt_namespace_capture_usage(txn, SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	say_debug("index_replace_hash_num(self:%p, old_tuple:%p, tuple:%p) key:%i", self, old_tuple,
 		  tuple, num);
@@ -378,14 +378,12 @@ index_replace_hash_num(struct index *self, struct box_tuple *old_tuple, struct b
 }
 
 static void
-index_replace_hash_num64(struct index *self, struct box_tuple *old_tuple, struct box_tuple *tuple)
+index_replace_hash_num64(struct box_txn *txn, struct index *self,
+			 struct box_tuple *old_tuple, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
 	u32 key_size = load_varint32(&key);
 	u64 num = *(u64 *)key;
-
-	/* see index_replace_tree_str for comments */
-	tnt_namespace_update_usage(self->namespace, sizeof(num) + sizeof(tuple));
 
 	if (key_size != 8)
 		tnt_raise(tnt_BoxException,
@@ -396,9 +394,11 @@ index_replace_hash_num64(struct index *self, struct box_tuple *old_tuple, struct
 		load_varint32(&old_key);
 		u64 old_num = *(u64 *)old_key;
 		assoc_delete(int64_ptr_map, self->idx.int64_hash, old_num);
+		tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 	}
 
 	assoc_replace(int64_ptr_map, self->idx.int64_hash, num, tuple);
+	tnt_namespace_capture_usage(txn, SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	say_debug("index_replace_hash_num(self:%p, old_tuple:%p, tuple:%p) key:%"PRIu64, self, old_tuple,
 		  tuple, num);
@@ -406,12 +406,10 @@ index_replace_hash_num64(struct index *self, struct box_tuple *old_tuple, struct
 }
 
 static void
-index_replace_hash_str(struct index *self, struct box_tuple *old_tuple, struct box_tuple *tuple)
+index_replace_hash_str(struct box_txn *txn, struct index *self,
+		       struct box_tuple *old_tuple, struct box_tuple *tuple)
 {
 	void *key = tuple_field(tuple, self->key_field->fieldno);
-
-	/* see index_replace_tree_str for comments */
-	tnt_namespace_update_usage(self->namespace, sizeof(key) + sizeof(tuple));
 
 	if (key == NULL)
 		tnt_raise(tnt_BoxException,
@@ -421,9 +419,11 @@ index_replace_hash_str(struct index *self, struct box_tuple *old_tuple, struct b
 	if (old_tuple != NULL) {
 		void *old_key = tuple_field(old_tuple, self->key_field->fieldno);
 		assoc_delete(lstr_ptr_map, self->idx.str_hash, old_key);
+		tnt_namespace_capture_usage(txn, -SIZEOF_HASH_INDEX_MEMBER(self));
 	}
 
 	assoc_replace(lstr_ptr_map, self->idx.str_hash, key, tuple);
+	tnt_namespace_capture_usage(txn, SIZEOF_HASH_INDEX_MEMBER(self));
 #ifdef DEBUG
 	u32 size = load_varint32(&key);
 	say_debug("index_replace_hash_str(self:%p, old_tuple:%p, tuple:%p) key:'%.*s'", self,
@@ -432,15 +432,9 @@ index_replace_hash_str(struct index *self, struct box_tuple *old_tuple, struct b
 }
 
 static void
-index_replace_tree_str(struct index *self, struct box_tuple *old_tuple, struct box_tuple *tuple)
+index_replace_tree_str(struct box_txn *txn, struct index *self,
+		       struct box_tuple *old_tuple, struct box_tuple *tuple)
 {
-	/*
-	 * Update usage at the beggining because if any error have been
-	 * occured there is no way to determine whether update of index was
-	 * successfull. So we always decrease usage during index cleanup.
-	 */
-	tnt_namespace_update_usage(self->namespace, SIZEOF_TREE_INDEX_MEMBER(self));
-
 	if (tuple->cardinality < self->field_cmp_order_cnt)
 		tnt_raise(tnt_BoxException,
 			  reason:"Supplied tuple misses a field which is part of an index"
@@ -449,8 +443,9 @@ index_replace_tree_str(struct index *self, struct box_tuple *old_tuple, struct b
 	struct tree_index_member *member = tuple2tree_index_member(self, tuple, NULL);
 
 	if (old_tuple)
-		index_remove_tree_str(self, old_tuple);
+		index_remove_tree_str(txn, self, old_tuple);
 	sptree_str_t_insert(self->idx.tree, member);
+	tnt_namespace_capture_usage(txn, SIZEOF_TREE_INDEX_MEMBER(self));
 }
 
 void

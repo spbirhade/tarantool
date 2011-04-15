@@ -4,6 +4,7 @@ import yaml
 def print_usage():
   info = yaml.load(admin.execute("show info\n"))["info"]
   print "usage = " + str(info["namespace_stat"]["namespace_0"]["usage"])
+  print "usage% = " + str(info["namespace_stat"]["namespace_0"]["usage%"])
 
 print """
 #
@@ -59,6 +60,16 @@ print """
 """
 for i in range(10, 20):
   exec sql "insert into t0 values ({0}, 'tuple')".format(i)
+print_usage()
+
+print """
+#
+#  check usage updates after replace/update
+#
+"""
+exec sql "insert into t0 values (19, 'bigger tuple')"
+print_usage()
+exec sql "update t0 set k1 = 'tuple' where k0 = 19"
 print_usage()
 
 # restore default server

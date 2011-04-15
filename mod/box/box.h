@@ -94,6 +94,8 @@ struct box_txn {
 
 	bool in_recover;
 	bool write_to_wal;
+
+	ssize_t usage;
 };
 
 enum tuple_flags {
@@ -147,21 +149,19 @@ enum box_mode {
 ENUM(messages, MESSAGES);
 
 static void __attribute__((unused, always_inline))
-tnt_namespace_update_usage(struct namespace *namespace, ssize_t bytes)
+tnt_namespace_capture_usage(struct box_txn *txn, ssize_t bytes)
 {
-	say_debug("usage = %zu limit = %zu bytes = %zi", namespace->usage, namespace->limit, bytes);
+	say_debug("namespace[%i]->usage = %zu namespace[%i]->limit = %zu "
+		  "txn->usage = %zi bytes = %zi",
+		  txn->n, namespace[txn->n].usage, txn->n, namespace[txn->n].limit,
+		  txn->usage, bytes);
 
-	if (bytes < 0)
-		assert(namespace->usage >= -bytes);
-	else
-		assert(namespace->usage <= SIZE_MAX - bytes);
-	namespace->usage += bytes;
+	txn->usage += bytes;
 
-	if (namespace->usage > namespace->limit)
-		if (bytes > 0) {
-			tnt_raise(tnt_BoxException, reason:"namespace limit is exceeded"
-						    errcode:ERR_CODE_NAMESPACE_LIMIT);
-		}
+	if (txn->usage > 0 && bytes > 0 &&
+	    (namespace[txn->n].usage + txn->usage) > namespace[txn->n].limit)
+		tnt_raise(tnt_BoxException, reason:"namespace limit is exceeded"
+					    errcode:ERR_CODE_NAMESPACE_LIMIT);
 }
 
 struct box_txn *txn_alloc(u32 flags);
