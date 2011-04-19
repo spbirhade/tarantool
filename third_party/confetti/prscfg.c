@@ -1700,7 +1700,7 @@ yyreduce:
 /* Line 1455 of yacc.c  */
 #line 147 "prscfg.y"
     {
-			OptDef	*str;
+			OptDef		*str;
 			NameAtom	*idx;
 
 			MakeAtom(idx, NULL);
@@ -1717,7 +1717,7 @@ yyreduce:
 /* Line 1455 of yacc.c  */
 #line 158 "prscfg.y"
     {
-			OptDef	*str;
+			OptDef		*str;
 			NameAtom	*idx;
 
 			MakeAtom(idx, NULL);
@@ -2012,7 +2012,7 @@ compileName(OptDef	*def) {
 				return 1;
 
 			if (index >= 0) {
-				beginPtr->index = index;
+				endPtr->index = index;
 				index = -1;
 			}
 
