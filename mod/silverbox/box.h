@@ -114,7 +114,8 @@ enum box_mode {
         _(SELECT_LIMIT, 15)			\
 	_(SELECT, 17)				\
 	_(UPDATE_FIELDS, 19)			\
-	_(DELETE, 20)
+	_(DELETE, 20)				\
+	_(EXEC_LUA, 21)
 
 ENUM(messages, MESSAGES);
 
@@ -126,10 +127,13 @@ ENUM(messages, MESSAGES);
 	})
 
 struct box_txn *txn_alloc(u32 flags);
-u32 box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data);
-void tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple);
 void txn_cleanup(struct box_txn *txn);
+u32 box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data);
 
+struct box_tuple *tuple_alloc(size_t size);
+void tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple);
+void tuple_ref(struct box_tuple *tuple, int count);
+void tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple);
 void *next_field(void *f);
 void append_field(struct tbuf *b, void *f);
 void *tuple_field(struct box_tuple *tuple, size_t i);

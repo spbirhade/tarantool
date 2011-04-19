@@ -176,6 +176,22 @@ read_field(struct tbuf *buf)
 	return p;
 }
 
+void
+read_push_field(lua_State *L, struct tbuf *buf)
+{
+	u32 data_len = read_varint32(buf);
+
+	if (data_len > buf->len)
+		raise(ERR_CODE_UNKNOWN_ERROR, "buffer too short");
+
+	lua_pushlstring(L, buf->data, data_len);
+
+	buf->size -= data_len;
+	buf->len -= data_len;
+	buf->data += data_len;
+}
+
+
 u32
 valid_tuple(struct tbuf *buf, u32 cardinality)
 {

@@ -54,6 +54,9 @@
 #include <util.h>
 #include <third_party/gopt/gopt.h>
 
+#include <third_party/luajit/src/lua.h>
+#include <third_party/luajit/src/lualib.h>
+#include <third_party/luajit/src/lauxlib.h>
 
 static pid_t master_pid;
 #define DEFAULT_CFG_FILENAME "tarantool.cfg"
@@ -67,6 +70,8 @@ bool init_storage, booting = true;
 
 extern int daemonize(int nochdir, int noclose);
 void out_warning(int v, char *format, ...);
+
+lua_State *root_L;
 
 static i32
 load_cfg(struct tarantool_cfg *conf, i32 check_rdonly)
@@ -292,6 +297,66 @@ remove_pid(void)
 	unlink(cfg.pid_file);
 }
 
+
+static int
+luaT_print(struct lua_State *L)
+{
+	int n = lua_gettop(L);
+	for (int i = 1; i <= n; i++)
+		say_info("%s", lua_tostring(L, i));
+	return 0;
+}
+
+static int
+luaT_panic(struct lua_State *L)
+{
+	const char *err = "unknown error";
+	if (lua_isstring(L, 1))
+		err = lua_tostring(L, 1);
+	panic("lua failed with: %s", err);
+}
+
+
+static int
+luaT_error(struct lua_State *L)
+{
+	const char *err = "unknown error";
+	if (lua_isstring(L, 1))
+		err = lua_tostring(L, 1);
+
+	say_error("lua failed with: %s", err);
+	longjmp(fiber->exc, 1);
+}
+
+void
+luaT_init()
+{
+	struct lua_State *L = luaL_newstate();
+
+	/* any lua error during initial load is fatal */
+	lua_atpanic(L, luaT_panic);
+
+	luaL_openlibs(L);
+	lua_register(L, "print", luaT_print);
+
+	luaT_opentbuf(L);
+	luaT_openfiber(L);
+
+	if (luaL_loadfile(L, "lua/prelude.lua"))
+		panic("luaL_loadfile(\"lua/prelude.lua\") failed");
+
+	if (lua_pcall(L, 0, 0, 0)) {
+		if (lua_isstring(L, -1))
+			panic("lua_pcall() failed: %s", lua_tostring(L, -1));
+		else
+			panic("lua_pcall() failed");
+	}
+
+	lua_atpanic(L, luaT_error);
+	root_L = L;
+}
+
+
 static void
 initialize(double slab_alloc_arena, int slab_alloc_minimal, double slab_alloc_factor)
 {
@@ -317,7 +382,6 @@ main(int argc, char **argv)
 	const char *cfg_paramname = NULL;
 
 	master_pid = getpid();
-	stat_init();
 	palloc_init();
 
 #ifdef RESOLVE_SYMBOLS
@@ -419,6 +483,7 @@ main(int argc, char **argv)
 
 	if (gopt(opt, 'I')) {
 		init_storage = true;
+		luaT_init();
 		initialize_minimal();
 		mod_init();
 		next_lsn(recovery_state, 1);
@@ -499,6 +564,7 @@ main(int argc, char **argv)
 	booting = false;
 
 #if defined(UTILITY)
+	luaT_init();
 	initialize_minimal();
 	signal_init();
 	mod_init();
@@ -508,10 +574,12 @@ main(int argc, char **argv)
 	ev_signal_init(ev_sig, (void *)snapshot, SIGUSR1);
 	ev_signal_start(ev_sig);
 
+	luaT_init();
 	initialize(cfg.slab_alloc_arena, cfg.slab_alloc_minimal, cfg.slab_alloc_factor);
 	signal_init();
 	ev_default_loop(0);
 
+	stat_init();
 	mod_init();
 	admin_init();
 	prelease(fiber->pool);

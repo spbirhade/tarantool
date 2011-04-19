@@ -29,10 +29,14 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include <third_party/luajit/src/lua.h>
+#include <third_party/luajit/src/lauxlib.h>
+
 #include <palloc.h>
 #include <pickle.h>
 #include <tbuf.h>
 #include <util.h>
+#include <fiber.h>
 
 #ifdef POISON
 #  define TBUF_POISON
@@ -65,10 +69,24 @@ tbuf_alloc(struct palloc_pool *pool)
 	return e;
 }
 
+struct tbuf *
+tbuf_alloc_fixed(struct palloc_pool *pool, void *data, size_t len)
+{
+	struct tbuf *e = palloc(pool, sizeof(*e));
+	e->pool = NULL;
+	e->len = 0;
+	e->size = len;
+	e->data = data;
+	return e;
+}
+
+
 void
 tbuf_ensure_resize(struct tbuf *e, size_t required)
 {
 	tbuf_assert(e);
+
+	assert(e->pool != NULL); /* attemp to resize fixed size tbuf */
 
 	const size_t initial_size = MAX(e->size, 128 - sizeof(*e));
 	size_t new_size = initial_size * 2;
@@ -98,15 +116,14 @@ tbuf_clone(struct palloc_pool *pool, const struct tbuf *orig)
 struct tbuf *
 tbuf_split(struct tbuf *orig, size_t at)
 {
-	struct tbuf *head = palloc(orig->pool, sizeof(*orig));
-	assert(at <= orig->len);
 	tbuf_assert(orig);
-	head->pool = orig->pool;
-	head->data = orig->data;
-	head->len = head->size = at;
+	assert(at <= orig->len);
+
+	struct tbuf *head = tbuf_alloc_fixed(orig->pool, orig->data, at);
 	orig->data += at;
 	orig->size -= at;
 	orig->len -= at;
+	head->len += at;
 	return head;
 }
 
@@ -203,4 +220,155 @@ tbuf_to_hex(const struct tbuf *x)
 	}
 
 	return out;
+}
+
+
+/* lua support */
+const char *tbuflib_name = "Tarantool.tbuf";
+
+int
+luaT_pushtbuf(struct lua_State *L, struct tbuf *orig)
+{
+	struct tbuf **b = lua_newuserdata(L, sizeof(struct tbuf *));
+	*b = orig;
+	luaL_getmetatable(L, tbuflib_name);
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+struct tbuf *
+luaT_checktbuf(struct lua_State *L, int idx)
+{
+	struct tbuf **b = luaL_checkudata(L, idx, tbuflib_name);
+	assert(b != NULL);
+	return *b;
+}
+
+static int
+luaT_tbuf_len(struct lua_State *L)
+{
+	struct tbuf *b = luaT_checktbuf(L, 1);
+	lua_pushinteger(L, b->len);
+	return 1;
+}
+
+static int
+luaT_tbuf_tostring(struct lua_State *L)
+{
+	struct tbuf *b = luaT_checktbuf(L, 1);
+	lua_pushlstring(L, b->data, b->len);
+	return 1;
+}
+
+static int
+luaT_tbuf_append(struct lua_State *L)
+{
+	struct tbuf *b = luaT_checktbuf(L, 1);
+	const char *format = luaL_checkstring(L, 2);
+	u32 u32;
+	u64 u64;
+	const char *str;
+	int i = 3; /* first arg comes third */
+
+	while (*format) {
+		switch (*format) {
+		case 'u':
+			u32 = luaL_checkinteger(L, i);
+			tbuf_append(b, &u32, sizeof(u32));
+			break;
+		case 'l':
+			u64 = luaL_checkinteger(L, i);
+			tbuf_append(b, &u64, sizeof(u64));
+			break;
+		case 'w':
+			u32 = luaL_checkinteger(L, i);
+			write_varint32(b, u32);
+			break;
+		case 's':
+			str = luaL_checklstring(L, i, &u32);
+			tbuf_append(b, str, u32);
+			break;
+		case 'f':
+			str = luaL_checklstring(L, i, &u32);
+			write_varint32(b, u32);
+			tbuf_append(b, str, u32);
+			break;
+		default:
+			lua_pushliteral(L, "bad pack format");
+			lua_error(L);
+		}
+		i++;
+		format++;
+	}
+	return 0;
+}
+
+
+static int
+luaT_tbuf_alloc(struct lua_State *L)
+{
+	return luaT_pushtbuf(L, tbuf_alloc(fiber->pool));
+}
+
+static int
+luaT_tbuf_reserve(struct lua_State *L)
+{
+	struct tbuf *b = luaT_checktbuf(L, 1);
+	i64 len = luaL_checkinteger(L, 2);
+
+	if (len <= 0) {
+		lua_pushliteral(L, "len must be greater then 0");
+		lua_error(L);
+	}
+
+	tbuf_reserve(b, len);
+	return 0;
+}
+
+static int
+luaT_tbuf_add_iov(struct lua_State *L)
+{
+	struct tbuf *b = luaT_checktbuf(L, 1);
+	i64 len = luaL_checkinteger(L, 2);
+
+	if (len <= 0) {
+		lua_pushliteral(L, "len must be greater then 0");
+		lua_error(L);
+	}
+
+	b->pool = NULL; /* tbuf is fixed from now */
+	add_iov(b->data, len);
+	return 0;
+}
+
+static int
+luaT_tbuf_alloc_fixed(struct lua_State *L)
+{
+	u32 len = luaL_checkinteger(L, 1);
+	void *ptr = palloc(fiber->pool, len);
+	return luaT_pushtbuf(L, tbuf_alloc_fixed(fiber->pool, ptr, len));
+}
+
+static const struct luaL_reg tbuflib_m [] = {
+	{"#", luaT_tbuf_len},
+	{"__tostring", luaT_tbuf_tostring},
+	{NULL, NULL}
+};
+
+static const struct luaL_reg tbuflib [] = {
+	{"append", luaT_tbuf_append},
+	{"reserve", luaT_tbuf_reserve},
+	{"add_iov", luaT_tbuf_add_iov},
+	{"alloc", luaT_tbuf_alloc},
+	{"alloc_fixed", luaT_tbuf_alloc_fixed},
+	{NULL, NULL}
+};
+
+int
+luaT_opentbuf(struct lua_State *L)
+{
+	luaL_newmetatable(L, tbuflib_name);
+	luaL_register(L, NULL, tbuflib_m);
+	luaL_register(L, "tbuf", tbuflib);
+	return 0;
 }

@@ -41,6 +41,9 @@
 #include <coro.h>
 #include <util.h>
 
+#include <third_party/luajit/src/lua.h>
+#include <third_party/luajit/src/lauxlib.h>
+
 #define FIBER_EXIT -1
 
 struct msg {
@@ -78,6 +81,8 @@ struct fiber {
 	jmp_buf exc;
 	const char *errstr;
 
+	lua_State *L;
+
 	const char *name;
 	void (*f) (void *);
 	void *f_data;
@@ -109,7 +114,6 @@ extern struct fiber *fiber;
 
 void fiber_init(void);
 struct fiber *fiber_create(const char *name, int fd, int inbox_size, void (*f) (void *), void *);
-void fiber_zombificate(struct fiber *f);
 void wait_for(int events);
 void unwait(int events);
 void yield(void);
@@ -146,7 +150,7 @@ inline static void add_iov(void *buf, size_t len)
 	add_iov_unsafe(buf, len);
 }
 
-void add_iov_dup(void *buf, size_t len);
+void add_iov_dup(const void *buf, size_t len);
 bool write_inbox(struct fiber *recipient, struct tbuf *msg);
 int inbox_size(struct fiber *recipient);
 void wait_inbox(struct fiber *recipient);
@@ -177,4 +181,6 @@ struct child *spawn_child(const char *name,
 			  int inbox_size,
 			  struct tbuf *(*handler) (void *, struct tbuf *), void *state);
 
+
+int luaT_openfiber(struct lua_State *L);
 #endif

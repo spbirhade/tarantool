@@ -43,6 +43,7 @@
 #include <cfg/tarantool_silverbox_cfg.h>
 #include <mod/silverbox/box.h>
 #include <mod/silverbox/index.h>
+#include <mod/silverbox/moonbox.h>
 
 bool box_updates_allowed = false;
 static char *status = "unknown";
@@ -85,8 +86,6 @@ box_snap_row(const struct tbuf *t)
 {
 	return (struct box_snap_row *)t->data;
 }
-
-static void tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple);
 
 box_hook_t *before_commit_update_hook;
 
@@ -183,7 +182,7 @@ tuple_print(struct tbuf *buf, uint8_t cardinality, void *f)
 	tbuf_printf(buf, ">");
 }
 
-static struct box_tuple *
+struct box_tuple *
 tuple_alloc(size_t size)
 {
 	struct box_tuple *tuple = salloc(sizeof(struct box_tuple) + size);
@@ -207,7 +206,7 @@ tuple_free(struct box_tuple *tuple)
 	sfree(tuple);
 }
 
-static void
+void
 tuple_ref(struct box_tuple *tuple, int count)
 {
 	assert(tuple->refs + count >= 0);
@@ -528,7 +527,7 @@ prepare_update_fields(struct box_txn *txn, struct tbuf *data)
 	return -1;
 }
 
-static void
+void
 tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple)
 {
 	size_t len;
@@ -803,6 +802,47 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 			stat_collect(stat_base, op, 1);
 			return process_select(txn, limit, offset, data);
 		}
+
+	case EXEC_LUA:{
+		lua_State *L = fiber->L;
+
+		lua_getglobal(L, "box");
+		lua_pushliteral(L, "user_proc");
+		lua_rawget(L, -2); /* user_proc table */
+		lua_remove(L, -2);
+		read_push_field(L, data); /* proc_name */
+		lua_rawget(L, -2); /* stack top is the proc */
+		lua_remove(L, -2);
+
+		if (lua_isnil(L, 1)) {
+			say_error("no such proc");
+			lua_settop(L, 0);
+			return ERR_CODE_ILLEGAL_PARAMS;
+		}
+
+		txn->flags |= BOX_QUIET; /* lua code will add output itself */
+		luaT_pushtxn(L, txn);
+
+		lua_getglobal(L, "namespace_registry");
+		lua_rawgeti(L, -1, txn->n);
+		lua_remove(L, -2); /* remove namespace_registry table */
+
+		u32 nargs = read_u32(data);
+		for (int i = 0; i < nargs; i++)
+			read_push_field(L, data);
+		if (lua_pcall(L, 2 + nargs, 1, 0)) {
+			say_error("lua_pcall() failed: %s", lua_tostring(L, -1));
+			return ERR_CODE_ILLEGAL_PARAMS;
+		}
+		if (!lua_isnumber(L, -1)) {
+			say_error("lua_pcall() failed: unexpected return type: %s",
+				  lua_typename(L, lua_type(L, -1)));
+			return ERR_CODE_UNKNOWN_ERROR;
+		}
+		u32 ret = lua_tointeger(L, 1);
+		lua_pop(L, 1);
+		return ret;
+	}
 
 	case UPDATE_FIELDS:
 		txn->flags = read_u32(data);
@@ -1185,6 +1225,7 @@ custom_init(void)
 	}
 }
 
+
 static u32
 box_process_ro(u32 op, struct tbuf *request_data)
 {
@@ -1338,6 +1379,7 @@ mod_init(void)
 	}
 
 	custom_init();
+	luaT_openbox(root_L);
 
 	if (init_storage)
 		return;

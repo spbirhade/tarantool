@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <third_party/luajit/src/lua.h>
 #include <util.h>
 
 struct tbuf {
@@ -41,7 +42,7 @@ struct tbuf {
 };
 
 struct tbuf *tbuf_alloc(struct palloc_pool *pool);
-
+struct tbuf *tbuf_alloc_fixed(struct palloc_pool *pool, void *ptr, u32 len);
 void tbuf_ensure_resize(struct tbuf *e, size_t bytes_required);
 static inline void tbuf_ensure(struct tbuf *e, size_t required)
 {
@@ -71,4 +72,8 @@ void tbuf_printf(struct tbuf *b, const char *format, ...)
 	__attribute__ ((format(FORMAT_PRINTF, 2, 3)));
 
 char *tbuf_to_hex(const struct tbuf *x);
+
+int luaT_opentbuf(struct lua_State *L);
+struct tbuf *luaT_checktbuf(struct lua_State *L, int idx);
+int luaT_pushtbuf(struct lua_State *L, struct tbuf *orig);
 #endif

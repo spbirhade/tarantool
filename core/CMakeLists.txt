@@ -126,9 +126,11 @@ set (common_sources tbuf.c palloc.c util.c
     ${CMAKE_SOURCE_DIR}/cfg/warning.c
     ${CMAKE_SOURCE_DIR}/third_party/confetti/prscfg.c
     )
-add_library(ltcommon STATIC ${common_sources})
 
-set (common_libraries ltcommon ev coro gopt misc)
+add_library(ltcommon STATIC ${common_sources})
+set (common_libraries ${common_libraries} ltcommon ev coro gopt misc luajit)
+
+
 
 if (ENABLE_GCOV)
   set (common_libraries ${common_libraries} gcov)
@@ -142,6 +144,7 @@ set (silverbox_sources
     ${CMAKE_SOURCE_DIR}/cfg/tarantool_silverbox_cfg.c
     ${CMAKE_SOURCE_DIR}/mod/silverbox/index.c
     ${CMAKE_SOURCE_DIR}/mod/silverbox/box.c
+    ${CMAKE_SOURCE_DIR}/mod/silverbox/moonbox.c
     ${CMAKE_SOURCE_DIR}/mod/silverbox/memcached.c
     log_io_remote.c iproto.c)
 

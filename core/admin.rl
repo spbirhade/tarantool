@@ -53,6 +53,7 @@ static const char *help =
 	" - save coredump" CRLF
 	" - save snapshot" CRLF
 	" - exec module command" CRLF
+	" - exec lua command" CRLF
 	" - reload configuration" CRLF;
 
 
@@ -92,8 +93,34 @@ fail(struct tbuf *out, struct tbuf *err)
 	end(out);
 }
 
+static const char *
+tbuf_reader(lua_State *L __attribute__((unused)), void *data, size_t *size)
+{
+	struct tbuf *code = data;
+	*size = code->len;
+	return tbuf_peek(code, code->len);
+}
+
+void
+exec_lua(lua_State *L, struct tbuf *code, struct tbuf *out)
+{
+	int r = lua_load(L, tbuf_reader, code, "network_input");
+	if (r != 0) {
+		if (r == LUA_ERRSYNTAX)
+			tbuf_printf(out, "error: syntax");
+		if (r == LUA_ERRMEM)
+			tbuf_printf(out, "error: memory");
+		return;
+	}
+
+	if (lua_pcall(L, 0, 0, 0)) {
+		tbuf_printf(out, "error: pcall");
+		return;
+	}
+}
+
 static int
-admin_dispatch(void)
+admin_dispatch()
 {
 	struct tbuf *out = tbuf_alloc(fiber->pool);
 	struct tbuf *err = tbuf_alloc(fiber->pool);
@@ -134,9 +161,24 @@ admin_dispatch(void)
 			end(out);
 		}
 
+		action stat {
+			start(out);
+			stat_print(fiber->L, out);
+			end(out);
+		}
+
 		action mod_exec {
 			start(out);
 			mod_exec(strstart, strend - strstart, out);
+			end(out);
+		}
+
+		action lua_exec {
+			struct tbuf *code = tbuf_alloc(fiber->pool);
+			tbuf_append(code, strstart, strend - strstart);
+
+			start(out);
+			exec_lua(fiber->L, code, out);
 			end(out);
 		}
 
@@ -165,6 +207,7 @@ admin_dispatch(void)
 		exec = "ex"("e"("c")?)?;
 		string = [^\r\n]+ >{strstart = p;}  %{strend = p;};
 		reload = "re"("l"("o"("a"("d")?)?)?)?;
+		lua = "lu"("a")?;
 
 		commands = (help			%help						|
 			    exit			%{return 0;}					|
@@ -173,10 +216,11 @@ admin_dispatch(void)
 			    show " "+ configuration 	%show_configuration				|
 			    show " "+ slab		%{start(out); slab_stat(out); end(out);}	|
 			    show " "+ palloc		%{start(out); palloc_stat(out); end(out);}	|
-			    show " "+ stat		%{start(out); stat_print(out);end(out);}	|
+			    show " "+ stat		%stat						|
 			    save " "+ coredump		%{coredump(60); ok(out);}			|
 			    save " "+ snapshot		%{snapshot(NULL, 0); ok(out);}			|
-			    exec " "+ string		%mod_exec					|
+			    exec " "+ mod " "+ string	%mod_exec					|
+			    exec " "+ lua " "+ string	%lua_exec					|
 			    check " "+ slab		%{slab_validate(); ok(out);}			|
 			    reload " "+ configuration	%reload_configuration);
 
@@ -199,7 +243,7 @@ admin_dispatch(void)
 
 
 static void
-admin_handler(void *_data __unused__)
+admin_handler(void *data __attribute__((unused)))
 {
 	for (;;) {
 		if (admin_dispatch() <= 0)
@@ -209,7 +253,7 @@ admin_handler(void *_data __unused__)
 }
 
 int
-admin_init(void)
+admin_init()
 {
 	if (fiber_server(tcp_server, cfg.admin_port, admin_handler, NULL, NULL) == NULL) {
 		say_syserror("can't bind to %d", cfg.admin_port);

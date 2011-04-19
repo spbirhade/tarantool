@@ -24,14 +24,11 @@
  * SUCH DAMAGE.
  */
 
-#ifndef TARANTOOL_STAT_H
-#define TARANTOOL_STAT_H
+#ifndef TARANTOOL_SILVERBOX_MOONBOX_H
+#define TARANTOOL_SILVERBOX_MOONBOX_H
 
-#include <tbuf.h>
-
-void stat_init(void);
-int stat_register(char **name, size_t count);
-void stat_collect(int base, int name, i64 value);
-void stat_print(lua_State *L, struct tbuf *buf);
+// extern struct lua_State *L;
+void luaT_openbox(struct lua_State *L);
+void luaT_pushtxn(struct lua_State *L, struct box_txn *txn);
 
 #endif

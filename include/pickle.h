@@ -40,6 +40,9 @@ u64 read_u64(struct tbuf *b);
 u32 read_varint32(struct tbuf *buf);
 void *read_field(struct tbuf *buf);
 
+void read_push_field(lua_State *L, struct tbuf *buf);
+
+
 u32 pick_u32(void *data, void **rest);
 
 u32 valid_tuple(struct tbuf *buf, u32 cardinality);

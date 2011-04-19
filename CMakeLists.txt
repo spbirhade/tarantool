@@ -7,7 +7,7 @@ find_program(CAT cat)
 find_program(GIT git)
 find_program(RAGEL ragel)
 find_program(CONFETTI confetti)
-
+link_directories(../third_party/luajit/src)
 #
 # Set default build type to Debug. This is to ease a developer's
 # life. Release binaries are built by BuildBot automatically anyway.
@@ -141,7 +141,6 @@ if (ENABLE_BACKTRACE)
         message (STATUS "Consider installing binutils-dev.")
     endif()
 endif()
-
 
 add_subdirectory(core)
 add_subdirectory(third_party)

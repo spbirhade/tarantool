@@ -41,6 +41,8 @@
 #include <sysexits.h>
 #include <third_party/queue.h>
 #include <third_party/khash.h>
+#include <third_party/luajit/src/lua.h>
+#include <third_party/luajit/src/lauxlib.h>
 
 #include <fiber.h>
 #include <palloc.h>
@@ -339,25 +341,35 @@ fiber_loop(void *data __unused__)
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
+
 /* fiber never dies, just become zombie */
 struct fiber *
-fiber_create(const char *restrict name, int fd, int inbox_size, void (*f) (void *), void *f_data)
+fiber_create(const char *name, int fd, int inbox_size, void (*f) (void *), void *f_data)
 {
 	struct fiber *fiber = NULL;
+	static int reg_cnt = 0;
+
 	if (inbox_size <= 0)
 		inbox_size = 64;
+
+	while (++last_used_fid <= 100) ;	/* fids from 0 to 100 are reserved */
 
 	if (!SLIST_EMPTY(&zombie_fibers)) {
 		fiber = SLIST_FIRST(&zombie_fibers);
 		SLIST_REMOVE_HEAD(&zombie_fibers, zombie_link);
 	} else {
-		fiber = palloc(eter_pool, sizeof(*fiber));
+		fiber = p0alloc(eter_pool, sizeof(*fiber));
 		if (fiber == NULL)
 			return NULL;
 
 		memset(fiber, 0, sizeof(*fiber));
 		if (tarantool_coro_create(&fiber->coro, fiber_loop, NULL) == NULL)
 			return NULL;
+
+		char lua_reg_name[16];
+		sprintf(lua_reg_name, "_fiber:%i", reg_cnt++);
+		fiber->L = lua_newthread(root_L);
+		lua_setfield(root_L, LUA_REGISTRYINDEX, lua_reg_name);
 
 		fiber->pool = palloc_create_pool(fiber->name);
 		fiber->inbox = palloc(eter_pool, (sizeof(*fiber->inbox) +
@@ -377,7 +389,6 @@ fiber_create(const char *restrict name, int fd, int inbox_size, void (*f) (void 
 	fiber->fd = fd;
 	fiber->f = f;
 	fiber->f_data = f_data;
-	while (++last_used_fid <= 100) ;	/* fids from 0 to 100 are reserved */
 	fiber->fid = last_used_fid;
 	register_fid(fiber);
 
@@ -509,7 +520,7 @@ fiber_bread(struct tbuf *buf, size_t at_least)
 }
 
 void
-add_iov_dup(void *buf, size_t len)
+add_iov_dup(const void *buf, size_t len)
 {
 	void *copy = palloc(fiber->pool, len);
 	memcpy(copy, buf, len);
@@ -1089,8 +1100,66 @@ fiber_init(void)
 	sched.fid = 1;
 	sched.name = "sched";
 	sched.pool = palloc_create_pool(sched.name);
+	sched.L = root_L;
 
 	sp = call_stack;
 	fiber = &sched;
 	last_used_fid = 100;
 }
+
+
+/* lua support */
+
+static void
+luaT_fiber_trampoline(void *data __attribute__((unused)))
+{
+	struct lua_State *L = fiber->L;
+
+	if (lua_pcall(L, 0, 0, 0) != 0) {
+		say_error("lua_pcall(): %s", lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+}
+
+static int
+luaT_fiber_create(struct lua_State *L)
+{
+	if (!lua_isfunction(L, 1)) {
+		lua_pushliteral(L, "fiber.create: arg is not a function");
+		lua_error(L);
+	}
+
+	struct fiber *child = fiber_create("lua", -1, -1, luaT_fiber_trampoline, NULL);
+
+	/* is there simpler way to transfer value into new stack ? */
+	lua_setfield(L, LUA_REGISTRYINDEX, "_swp");
+	lua_getfield(child->L, LUA_REGISTRYINDEX, "_swp");
+	lua_pushnil(L);
+	lua_setfield(L, LUA_REGISTRYINDEX, "_swp");
+
+	fiber_call(child); /* TODO: async wake instead sync call */
+	return 0;
+}
+
+static int
+luaT_fiber_sleep(struct lua_State *L)
+{
+	lua_Number delay = luaL_checknumber(L, 1);
+	fiber_sleep(delay);
+	return 0;
+}
+
+
+static const struct luaL_reg fiberlib [] = {
+	{"create", luaT_fiber_create},
+	{"sleep", luaT_fiber_sleep},
+	{NULL, NULL}
+};
+
+int
+luaT_openfiber(struct lua_State *L)
+{
+	luaL_register(L, "fiber", fiberlib);
+	return 0;
+}
+

@@ -33,11 +33,10 @@
 #include <third_party/khash.h>
 
 #define SECS 5
-static ev_timer timer;
 
 struct {
 	char *name;
-	i64 value[SECS + 1];
+	i64 value;
 } *stats = NULL;
 static int stats_size = 0;
 static int stats_max = 0;
@@ -61,8 +60,7 @@ stat_register(char **name, size_t max_idx)
 		if (*name == NULL)
 			continue;
 
-		for (int i = 0; i < SECS + 1; i++)
-			stats[base].value[i] = 0;
+		stats[base].value = 0;
 
 		stats_max = base;
 	}
@@ -73,60 +71,62 @@ stat_register(char **name, size_t max_idx)
 void
 stat_collect(int base, int name, i64 value)
 {
-	stats[base + name].value[0] += value;
-	stats[base + name].value[SECS] += value;
+	stats[base + name].value += value;
 }
 
 void
-stat_print(struct tbuf *buf)
+stat_print(lua_State *L, struct tbuf *buf)
 {
-	int max_len = 0;
-	tbuf_printf(buf, "statistics:" CRLF);
-
-	for (int i = 0; i <= stats_max; i++) {
-		if (stats[i].name == NULL)
-			continue;
-		max_len = MAX(max_len, strlen(stats[i].name));
-	}
-
-	for (int i = 0; i <= stats_max; i++) {
-		if (stats[i].name == NULL)
-			continue;
-
-		int diff = 0;
-		for (int j = 0; j < SECS; j++)
-			diff += stats[i].value[j];
-
-		diff /= SECS;
-
-		tbuf_printf(buf, "  %s:%*s{ rps: %- 6i, total: %- 12" PRIi64 " }" CRLF,
-			    stats[i].name, 1 + max_len - (int)strlen(stats[i].name), " ",
-			    diff, stats[i].value[SECS]);
+	lua_getglobal(L, "stat");
+	lua_getfield(L, -1, "print");
+	luaT_pushtbuf(L, buf);
+	if (lua_pcall(L, 1, 0, 0) != 0) {
+		say_error("lua_pcall(stat.print): %s", lua_tostring(L, -1));
+		lua_pop(L, 1);
 	}
 }
 
 void
-stat_age(ev_timer *timer, int events __unused__)
+stat_record(void *data __attribute__((unused)))
 {
-	if (stats == NULL)
-		return;
+	lua_State *L = fiber->L;
 
-	for (int i = 0; i <= stats_max; i++) {
-		if (stats[i].name == NULL)
+	for (;;) {
+		fiber_sleep(1);
+
+		if (stats == NULL)
 			continue;
 
-		for (int j = SECS - 2; j >= 0;  j--)
-			stats[i].value[j + 1] = stats[i].value[j];
-		stats[i].value[0] = 0;
-	}
 
-	ev_timer_again(timer);
+		lua_getglobal(L, "stat");
+		lua_getfield(L, -1, "record"); /* stack top is stat.record */
+
+		lua_newtable(L); /* table with stats */
+		for (int i = 0; i <= stats_max; i++) {
+			if (stats[i].name == NULL)
+				continue;
+
+			lua_pushstring(L, stats[i].name);
+			lua_pushnumber(L, stats[i].value);
+			lua_settable(L, -3);
+		}
+
+		if (lua_pcall(L, 1, 0, 0) != 0) {
+			say_error("lua_pcall(stat.record): %s", lua_tostring(L, -1));
+			lua_pop(L, 1);
+		}
+
+		for (int i = 0; i <= stats_max; i++) {
+				if (stats[i].name == NULL)
+					continue;
+				stats[i].value = 0;
+		}
+	}
 }
 
 void
-stat_init(void)
+stat_init()
 {
-	ev_init(&timer, stat_age);
-	timer.repeat = 1.;
-	ev_timer_again(&timer);
+	struct fiber *s = fiber_create("stat", -1, -1, stat_record, NULL);
+	fiber_call(s);
 }

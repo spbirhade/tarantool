@@ -47,6 +47,7 @@ extern struct tbuf *cfg_out;
 extern const char *cfg_filename;
 extern bool init_storage, booting;
 extern char *binary_filename;
+extern lua_State *root_L;
 i32 reload_cfg(struct tbuf *out);
 void snapshot(void *ev __unused__, int events __unused__);
 const char *tarantool_version(void);
