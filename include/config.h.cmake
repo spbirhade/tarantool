@@ -5,7 +5,7 @@
  * config.h.cmake. Please do not modify.
  */
 /*
-  A string with major-minor-patch-commit-id identifier of the
+ * A string with major-minor-patch-commit-id identifier of the
  * release.
  */
 #define TARANTOOL_VERSION "@TARANTOOL_VERSION@"
@@ -31,6 +31,10 @@
  * Set if the system has bfd.h header and GNU bfd library.
  */
 #cmakedefine HAVE_BFD 1
+/*
+ * Set if this is a GNU system and libc has __libc_stack_end.
+ */
+#cmakedefine HAVE_LIBC_STACK_END 1
 /*
  * vim: syntax=c
  */

@@ -1,13 +1,21 @@
 cmake_minimum_required(VERSION 2.6)
-project(Tarantool)
+project(tarantool)
 include(CheckLibraryExists)
 include(CheckIncludeFile)
+include(CheckCCompilerFlag)
 find_program(ECHO echo)
 find_program(CAT cat)
 find_program(GIT git)
 find_program(RAGEL ragel)
 find_program(CONFETTI confetti)
-link_directories(../third_party/luajit/src)
+link_directories(${PROJECT_SOURCE_DIR}/third_party/luajit/src)
+#
+# This instructs the rest of the build system what product
+# and what modules to produce.
+#
+set (TARANTOOL_PRODUCT "silverbox")
+set (TARANTOOL_MODULES "silverbox" "feeder")
+
 #
 # Set default build type to Debug. This is to ease a developer's
 # life. Release binaries are built by BuildBot automatically anyway.
@@ -37,11 +45,17 @@ else()
 endif()
 
 #
+# Some versions of GNU libc define non-portable __libc_stack_end
+# which we use to determine the end (or beginning, actually) of
+# stack. Find whether or not it's present.
+check_library_exists("" __libc_stack_end "" HAVE_LIBC_STACK_END)
+
+#
 # Tarantool uses 'coro' (coroutines) library # to implement
 # cooperative multi-tasking. Since coro.h is included
 # universally, define the underlying implementation switch
-# in top level CMakeLists.txt, to ensure a consistent header
-# file layout across the entire project.
+# in the top level CMakeLists.txt, to ensure a consistent
+# header file layout across the entire project.
 #
 if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "86")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCORO_ASM")
@@ -65,10 +79,23 @@ add_custom_target(TAGS COMMAND ctags -R -e -f TAGS
 #
 # Define TARANTOOL_VERSION -- a string constant with tarantool version.
 #
+set (TARANTOOL_VERSION "")
 execute_process (COMMAND ${GIT} describe HEAD
     OUTPUT_VARIABLE TARANTOOL_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+#
+# Make sure the version is set even if building
+# out of source.
+#
+set (CPACK_PACKAGE_VERSION_MAJOR "1")
+set (CPACK_PACKAGE_VERSION_MINOR "4")
+set (CPACK_PACKAGE_VERSION_PATCH "0")
+if (TARANTOOL_VERSION STREQUAL "")
+    set (TARANTOOL_VERSION
+        "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+endif()
+
 
 #
 # Set flags for all include files: those maintained by us and
@@ -120,6 +147,7 @@ with gcc. If GNU binutils and binutils-dev libraries are installed, backtrace
 is output with resolved function (symbol) names. Otherwise only frame
 addresses are printed." ${CMAKE_COMPILER_IS_GNUCC})
 
+set (HAVE_BFD False)
 if (ENABLE_BACKTRACE)
     if (NOT ${CMAKE_COMPILER_IS_GNUCC} OR
         NOT (${CMAKE_SYSTEM_PROCESSOR} MATCHES "86"))
@@ -131,7 +159,7 @@ if (ENABLE_BACKTRACE)
     check_library_exists (bfd bfd_init ""  HAVE_BFD_LIB)
     check_include_file(bfd.h HAVE_BFD_H)
     if (HAVE_BFD_LIB AND HAVE_BFD_H)
-        set (HAVE_BFD 1)
+        set (HAVE_BFD True)
         message (STATUS "Found GNU bfd headers and libs, enabling symbol ")
         message (STATUS "resolve in backtraces.")
     elseif (NOT HAVE_BFD_LIB)
@@ -142,10 +170,17 @@ if (ENABLE_BACKTRACE)
     endif()
 endif()
 
-add_subdirectory(core)
 add_subdirectory(third_party)
+add_subdirectory(cfg)
+add_subdirectory(connector)
+add_subdirectory(core)
+add_subdirectory(mod)
 add_subdirectory(test)
 
+install (FILES README LICENSE doc/silverbox-protocol.txt
+         DESTINATION doc)
+
+include (cmake/tarantool_cpack.cmake)
 #
 # Output compile-time defines into config.h. Do it at the end
 # of the script to make sure all variables are set.
@@ -156,7 +191,10 @@ configure_file(
     )
 
 message (STATUS "")
-message (STATUS "Successfully configured Tarantool on ${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}, build type '${CMAKE_BUILD_TYPE}'. ")
+message (STATUS "Successfully configured Tarantool infrastructure on ")
+message (STATUS "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}, build type '${CMAKE_BUILD_TYPE}'. ")
+message (STATUS "The product you're building is \"${TARANTOOL_PRODUCT}\", enabled modules are ")
+message (STATUS "${TARANTOOL_MODULES}.")
 message (STATUS "Please check out CMakeCache.txt to view or modify configuration results.")
 message (STATUS "")
 message (STATUS "*** The following options are on in this configuration: ***")

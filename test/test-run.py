@@ -27,7 +27,7 @@ __author__ = "Konstantin Osipov <kostja.osipov@gmail.com>"
 import argparse
 import os.path
 import sys
-from lib.test_suite import TestSuite, TestRunException
+from lib.test_suite import TestSuite
 
 #
 # Run a collection of tests.
@@ -46,7 +46,7 @@ class Options:
 
     parser.add_argument(
         "tests",
-        metavar="list of tests",
+        metavar="test",
         nargs="*",
         default = [""],
         help="""Can be empty. List of test names, to look for in suites. Each
@@ -56,49 +56,65 @@ class Options:
         "box" suite. Default: run all tests in all specified suites.""")
 
     parser.add_argument(
+        "--module",
+        dest = 'modules',
+        metavar = "module",
+        nargs="*",
+        default = ["silverbox"],
+        help = "List of modules to test. Default: \"silverbox\"")
+
+    parser.add_argument(
         "--suite",
         dest = 'suites',
         metavar = "suite",
         nargs="*",
-        default = ["box"],
-        help = """List of tests suites to look for tests in. Default: "box".""")
+        default = [],
+        help = """List of tests suites to look for tests in. Default: "" -
+	means find all available.""")
 
     parser.add_argument(
         "--force",
         dest = "is_force",
         action = "store_true",
         default = False,
-        help = "Go on with other tests in case of an individual test failure."
-               " Default: false.")
+        help = """Go on with other tests in case of an individual test failure.
+                 Default: false.""")
 
     parser.add_argument(
         "--start-and-exit",
         dest = "start_and_exit",
         action = "store_true",
         default = False,
-        help = "Start the server from the first specified suite and"
-        "exit without running any tests. Default: false.")
+        help = """Start the server from the first specified suite and
+         exit without running any tests. Default: false.""")
 
     parser.add_argument(
         "--gdb",
         dest = "gdb",
         action = "store_true",
         default = False,
-        help = "Start the server under 'gdb' debugger. Default: false."
-        " See also --start-and-exit.")
+        help = """Start the server under 'gdb' debugger.
+        See also --start-and-exit. This option is mutually exclusive with
+        --valgrind. Default: false.""")
 
     parser.add_argument(
-        "--bindir",
-        dest = "bindir",
-        default = "../core",
-        help = "Path to server binary."
-               " Default: " + "../core.")
+        "--valgrind",
+        dest = "valgrind",
+        action = "store_true",
+        default = False,
+        help = "Run the server under 'valgrind'. Default: false.")
+
+    parser.add_argument(
+        "--builddir",
+        dest = "builddir",
+        default = "..",
+        help = """Path to project build directory. Default: " + "../.""")
 
     parser.add_argument(
         "--vardir",
         dest = "vardir",
         default = "var",
-        help = "Path to data directory. Default: var.")
+        help = """Path to data directory. Default: var.""")
 
     parser.add_argument(
         "--mem",
@@ -108,9 +124,19 @@ class Options:
         help = """Run test suite in memory, using tmpfs or ramdisk.
         Is used only if vardir is not an absolute path. In that case
         vardir is sym-linked to /dev/shm/<vardir>.
-        Linux only. Default: false""")
+        Linux only. Default: false.""")
 
     self.args = parser.parse_args()
+    self.check()
+
+  def check(self):
+    """Check the arguments for correctness."""
+    check_error = False
+    if self.args.gdb and self.args.valgrind:
+      print "Error: option --gdb is not compatible with option --valgrind"
+      check_error = True
+    if check_error:
+      exit(-1)
 
 #######################################################################
 # Program body
@@ -122,22 +148,34 @@ def main():
   # Change the current working directory to where all test
   # collections are supposed to reside.
   os.chdir(os.path.dirname(sys.argv[0]))
+  failed_tests = 0
 
   try:
     print "Started", " ".join(sys.argv)
+    suite_names = []
+    if options.args.suites != []:
+      suite_names = options.args.suites
+    else:
+      for root, dirs, names in os.walk(os.getcwd()):
+        if "suite.ini" in names:
+	  suite_names.append(os.path.basename(root))
     suites = []
-    for suite_name in options.args.suites:
-      suites.append(TestSuite(suite_name, options.args))
+    for suite_name in suite_names:
+      suite = TestSuite(suite_name, options.args)
+      if suite.ini["module"] not in options.args.modules:
+        continue
+
+      suites.append(suite)
 
     for suite in suites:
-      suite.run_all()
+      failed_tests += suite.run_all()
   except RuntimeError as e:
     print "\nFatal error: {0}. Execution aborted.".format(e)
     return (-1)
   finally:
     os.chdir(oldcwd)
 
-  return 0
+  return -failed_tests 
 
 if __name__ == "__main__":
   exit(main())

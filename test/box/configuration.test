@@ -1,0 +1,19 @@
+# encoding: tarantool
+#
+print """
+# Bug #708685:
+#  Addition of required configuration file options broke backward
+#  compatibility
+#  (https://bugs.launchpad.net/bugs/708685)
+"""
+# stop current server
+server.stop()
+# start server from config with holes in namespaces
+server.deploy("box/tarantool_bug708685.cfg")
+# check connection
+exec admin "show stat"
+
+# restore default server
+server.stop()
+server.deploy(self.suite_ini["config"])
+# vim: syntax=python

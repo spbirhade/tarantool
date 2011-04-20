@@ -31,7 +31,7 @@
 #include <util.h>
 #include <log_io.h>
 
-struct recovery_state *recovery_state;
+extern struct recovery_state *recovery_state;
 void mod_init(void);
 struct tarantool_cfg;
 i32 mod_check_config(struct tarantool_cfg *conf);
@@ -49,7 +49,7 @@ extern bool init_storage, booting;
 extern char *binary_filename;
 extern lua_State *root_L;
 i32 reload_cfg(struct tbuf *out);
-void snapshot(void *ev __unused__, int events __unused__);
+int snapshot(void *ev __unused__, int events __unused__);
 const char *tarantool_version(void);
 void tarantool_info(struct tbuf *out);
 double tarantool_uptime(void);

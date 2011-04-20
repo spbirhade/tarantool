@@ -189,6 +189,19 @@ admin_dispatch()
 				ok(out);
 		}
 
+		action save_snapshot {
+			int ret = snapshot(NULL, 0);
+
+			if (ret == 0)
+				ok(out);
+			else {
+				tbuf_printf(err, " can't save snapshot, errno %d (%s)",
+					    ret, strerror(ret));
+
+				fail(out, err);
+			}
+		}
+
 		eol = "\n" | "\r\n";
 		show = "sh"("o"("w")?)?;
 		info = "in"("f"("o")?)?;
@@ -218,8 +231,8 @@ admin_dispatch()
 			    show " "+ palloc		%{start(out); palloc_stat(out); end(out);}	|
 			    show " "+ stat		%stat						|
 			    save " "+ coredump		%{coredump(60); ok(out);}			|
-			    save " "+ snapshot		%{snapshot(NULL, 0); ok(out);}			|
-			    exec " "+ mod " "+ string	%mod_exec					|
+			    save " "+ snapshot		%save_snapshot					|
+			    exec " "+ string		%mod_exec					|
 			    exec " "+ lua " "+ string	%lua_exec					|
 			    check " "+ slab		%{slab_validate(); ok(out);}			|
 			    reload " "+ configuration	%reload_configuration);

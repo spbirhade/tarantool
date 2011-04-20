@@ -73,6 +73,8 @@ struct log_io {
 	size_t rows;
 	size_t retry;
 	char filename[PATH_MAX + 1];
+
+	bool is_inprogress;
 };
 
 struct recovery_state {
@@ -92,7 +94,9 @@ struct recovery_state {
 	int snap_io_rate_limit;
 	u64 cookie;
 
-	/* pointer to user supplied custom data */
+	bool finalize;
+
+	/* Points to module-specific state */
 	void *data;
 };
 

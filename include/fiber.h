@@ -68,6 +68,7 @@ struct fiber {
 	int fd;
 
 	ev_timer timer;
+	ev_child cw;
 
 	struct tbuf *iov;
 	size_t iov_cnt;
@@ -88,6 +89,8 @@ struct fiber {
 	void *f_data;
 
 	void *data;
+	/** Information about the last error. */
+	void *diagnostics;
 
 	u64 cookie;
 	bool has_peer;
@@ -115,6 +118,7 @@ extern struct fiber *fiber;
 void fiber_init(void);
 struct fiber *fiber_create(const char *name, int fd, int inbox_size, void (*f) (void *), void *);
 void wait_for(int events);
+void wait_for_child(pid_t pid);
 void unwait(int events);
 void yield(void);
 void raise_(int);
