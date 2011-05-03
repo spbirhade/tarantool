@@ -1,1 +1,1 @@
-add_library(client client.c)
+add_library(connector_c client.c)

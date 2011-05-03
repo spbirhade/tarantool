@@ -23,8 +23,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "log_io.h"
-#include "fiber.h"
 
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -38,6 +36,9 @@
 
 #include <say.h>
 #include <pickle.h>
+
+#include <log_io.h>
+#include <fiber.h>
 
 static u32
 row_v11_len(struct tbuf *r)
@@ -82,6 +83,8 @@ remote_read_row(i64 initial_lsn)
 
 	for (;;) {
 		if (fiber->fd < 0) {
+			/* XXX authentication */
+
 			if (fiber_connect(fiber->data) < 0) {
 				err = "can't connect to feeder";
 				goto err;

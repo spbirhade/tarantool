@@ -2,8 +2,12 @@
 #include <stdio.h>
 
 int main() {
-  struct tnt_connection *conn = tnt_connect("localhost", 33013);
-  if (conn == NULL)
+
+  struct tnt *conn = tnt_init();
+
+  if ( tnt_connect(conn, "localhost", 33013) != TNT_EOK )
+
+	  tnt_free(conn);
 	  return 1;
 
   {
@@ -28,6 +32,6 @@ int main() {
     printf("return_code: %d\n", res); // =2
   }
 
-  tnt_disconnect(conn);
+  tnt_close(conn);
   return 0;
 }

@@ -39,6 +39,8 @@
 #include <bfd.h>
 #endif /* HAVE_BFD */
 
+#include <third_party/queue.h>
+
 #include <fiber.h>
 #include "say.h"
 

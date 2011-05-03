@@ -23,15 +23,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "iproto.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include <palloc.h>
-#include <fiber.h>
-#include <tbuf.h>
 #include <say.h>
+#include <palloc.h>
+#include <tbuf.h>
+#include <fiber.h>
+#include <iproto.h>
 
 const uint32_t msg_ping = 0xff00;
 STRS(error_codes, ERROR_CODES);

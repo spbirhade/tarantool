@@ -211,8 +211,8 @@ admin_dispatch(void)
 }
 
 
-static void
-admin_handler(void *_data __attribute__((unused)))
+void
+admin_interact(void *_data __attribute__((unused)))
 {
 	for (;;) {
 		if (admin_dispatch() <= 0)
@@ -224,7 +224,7 @@ admin_handler(void *_data __attribute__((unused)))
 int
 admin_init(void)
 {
-	if (fiber_server(tcp_server, cfg.admin_port, admin_handler, NULL, NULL) == NULL) {
+	if (fiber_server(tcp_server, cfg.admin_port, admin_interact, NULL, NULL) == NULL) {
 		say_syserror("can't bind to %d", cfg.admin_port);
 		return -1;
 	}

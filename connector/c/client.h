@@ -29,10 +29,77 @@
 
 #include <stddef.h>
 
+enum tnt_result {
+
+	TNT_EFAIL,
+	TNT_EOK,
+	TNT_EBADVAL,
+	TNT_EMEMORY,
+	TNT_ESOCKET,
+	TNT_ESOCKOPT,
+	TNT_ECONNECT,
+	TNT_EREAD,
+	TNT_EWRITE,
+	TNT_EPROTO,
+	TNT_EAUTH
+};
+
+enum tnt_auth {
+
+	TNT_AUTH_NONE,
+	TNT_AUTH_CHAP
+};
+
+enum tnt_proto {
+
+	TNT_PROTO_ADMIN,
+	TNT_PROTO_RW,
+	TNT_PROTO_RO,
+	TNT_PROTO_FEEDER
+};
+
+struct tnt {
+
+	int             port;
+	int             connected;
+
+	enum tnt_auth   auth_type;
+	enum tnt_proto  auth_proto;
+
+	char          * auth_id;
+	int             auth_id_size;
+	char          * auth_key;
+	int             auth_key_size;
+};
+
+struct tnt*
+tnt_init(void);
+
+enum tnt_result
+tnt_init_auth(struct tnt * tnt, enum tnt_auth auth,
+	enum tnt_proto, char * id, char * key, int key_size);
+
+void
+tnt_free(struct tnt * tnt);
+
+char*
+tnt_error(enum tnt_result res);
+
+enum tnt_result
+tnt_connect(struct tnt * tnt, const char * hostname, int port);
+
+void
+tnt_close(struct tnt * tnt);
+
+int
+tnt_execute_raw(struct tnt * tnt, const char * message, size_t len);
+
+#if 0
 /**
  * A connection with a Tarantool server.
  */
 struct tnt_connection {
+
 	int data_port;
 };
 
@@ -65,5 +132,6 @@ void tnt_disconnect(struct tnt_connection *conn);
  */
 int tnt_execute_raw(struct tnt_connection *conn, const char *message,
 		    size_t len);
+#endif
 
 #endif /* TARANTOOL_CONNECTOR_CLIENT_H_INCLUDED */

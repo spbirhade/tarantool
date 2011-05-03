@@ -24,8 +24,8 @@
  * SUCH DAMAGE.
  */
 
-#include "fiber.h"
 #include "config.h"
+#include "fiber.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>

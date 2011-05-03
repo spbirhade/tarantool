@@ -27,6 +27,10 @@
  */
 
 
-int admin_init(void);
+int
+admin_init(void);
+
+void
+admin_interact(void * data);
 
 #endif /* TARANTOOL_ADMIN_H_INCLUDED */

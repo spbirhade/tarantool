@@ -16,6 +16,7 @@ find_program(CONFETTI confetti)
 #
 set (TARANTOOL_PRODUCT "box")
 set (TARANTOOL_MODULES "box" "feeder")
+set (TARANTOOL_PLUGS "dummy" "auth_chap")
 
 #
 # Set default build type to Debug. This is to ease a developer's
@@ -195,6 +196,8 @@ add_subdirectory(connector)
 add_subdirectory(core)
 add_subdirectory(mod)
 add_subdirectory(test)
+add_subdirectory(plug)
+add_subdirectory(client)
 
 install (FILES README LICENSE doc/box-protocol.txt
          DESTINATION doc)

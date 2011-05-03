@@ -32,7 +32,9 @@
 #include <arpa/inet.h>
 
 #include <fiber.h>
+#include <auth.h>
 #include <iproto.h>
+#include <admin.h>
 #include <log_io.h>
 #include <pickle.h>
 #include <salloc.h>
@@ -585,7 +587,7 @@ out:
 	if (!(txn->flags & BOX_QUIET)) {
 		add_iov_dup(&tuples_affected, sizeof(uint32_t));
 
-		if (txn->flags & BOX_RETURN_TUPLE)
+		if ((txn->flags & BOX_RETURN_TUPLE) && txn->tuple)
 			tuple_add_iov(txn, txn->tuple);
 	}
 }
@@ -1262,6 +1264,41 @@ box_process_rw(u32 op, struct tbuf *request_data)
 	return box_process(txn_alloc(0), op, request_data);
 }
 
+extern struct auth_mech * auth_mech;
+
+static void
+box_auth(void * data)
+{
+	enum auth_result result = AUTH_PROTO_RO;
+
+	if (auth_mech) {
+
+		result = auth_mech->handshake(&fiber->user);
+		tbuf_reset(fiber->rbuf);
+	}
+
+	switch (result) {
+
+		case AUTH_FAIL: return;
+
+		case AUTH_PROTO_ADMIN:
+			admin_interact(data);
+			break;
+
+		case AUTH_PROTO_FEEDER:
+			/* Box connects to feeder */
+			break;
+
+		case AUTH_PROTO_RW:
+			iproto_interact(box_process_rw);
+			break;
+
+		case AUTH_PROTO_RO:
+			iproto_interact(box_process_ro);
+			break;
+	}
+}
+
 static struct tbuf *
 convert_snap_row_to_wal(struct tbuf *t)
 {
@@ -1478,6 +1515,8 @@ mod_init(void)
 		if (cfg.primary_port != 0)
 			fiber_server(tcp_server, cfg.primary_port, iproto_interact, box_process_rw,
 				     box_bound_to_primary);
+
+		fiber_server(tcp_server, 15312, box_auth, NULL, box_bound_to_primary);
 	}
 
 	say_info("initialized");

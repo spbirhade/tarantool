@@ -42,6 +42,7 @@
 #ifdef TARGET_OS_LINUX
 # include <sys/prctl.h>
 #endif
+#include <third_party/queue.h>
 #include <admin.h>
 #include <fiber.h>
 #include <iproto.h>
@@ -52,17 +53,20 @@
 #include <stat.h>
 #include TARANTOOL_CONFIG
 #include <util.h>
+#include <plug.h>
+#include <auth.h>
+#include <user.h>
 #include <third_party/gopt/gopt.h>
 #include <cfg/warning.h>
 
-
-static pid_t master_pid;
+pid_t master_pid;
 #define DEFAULT_CFG_FILENAME "tarantool.cfg"
 const char *cfg_filename = DEFAULT_CFG_FILENAME;
 char *cfg_filename_fullpath = NULL;
 char *binary_filename;
 struct tarantool_cfg cfg;
 struct recovery_state *recovery_state;
+struct auth_mech * auth_mech = NULL;
 
 bool init_storage, booting = true;
 
@@ -538,6 +542,20 @@ main(int argc, char **argv)
 	initialize(cfg.slab_alloc_arena, cfg.slab_alloc_minimal, cfg.slab_alloc_factor);
 	signal_init();
 
+	user_init();
+	user_add("test", (unsigned char*)"1234567812345678", 16);
+
+	auth_init();
+
+	plug_init();
+	plug_attach_dir("../../plug/auth_chap");
+
+	plug_print();
+	auth_print();
+	user_print();
+
+	auth_mech = auth_match_name("chap");
+
 	mod_init();
 	admin_init();
 	prelease(fiber->pool);
@@ -547,6 +565,7 @@ main(int argc, char **argv)
 		ev_set_io_collect_interval(cfg.io_collect_interval);
 	ev_now_update();
 	start_time = ev_now();
+	srand((unsigned int)start_time);
 	ev_loop(0);
 	say_crit("exiting loop");
 #else

@@ -34,11 +34,13 @@
 #include <sys/uio.h>
 #include <netinet/in.h>
 
+#include <third_party/queue.h>
+
 #include <tarantool_ev.h>
 #include <tbuf.h>
 #include <coro.h>
 #include <util.h>
-#include "third_party/queue.h"
+#include <user.h>
 
 #include <exceptions.h>
 
@@ -92,6 +94,8 @@ struct fiber {
 	u64 cookie;
 	bool has_peer;
 	char peer_name[32];
+
+	struct user *user;
 
 	u32 flags;
 };

@@ -21,10 +21,11 @@
  * SUCH DAMAGE.
  */
 #include "diagnostics.h"
-#include "fiber.h"
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include <fiber.h>
 
 static struct Error oom_error = { ENOMEM, "Out of memory" };
 
