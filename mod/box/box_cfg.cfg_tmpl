@@ -7,8 +7,11 @@ snap_dir=".", ro
 # WAL directory (where WAL get saved/read)
 wal_dir=".", ro
 
+# Main port (Main box port with authentication)
+main_port=0, ro, required
+
 # Primary port (where updates are accepted)
-primary_port=0, ro, required
+primary_port=0, ro
 
 # Secondary port (where only selects are accepted)
 secondary_port=0, ro
@@ -27,7 +30,6 @@ memcached_namespace=23, ro
 memcached_expire_per_loop=1024
 # tarantool will try iterate all rows within this time
 memcached_expire_full_sweep=3600
-
 
 # do not write snapshot faster then snap_io_rate_limit MBytes/sec
 snap_io_rate_limit=0.0, ro

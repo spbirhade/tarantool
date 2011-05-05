@@ -196,7 +196,7 @@ add_subdirectory(connector)
 add_subdirectory(core)
 add_subdirectory(mod)
 add_subdirectory(test)
-add_subdirectory(plug)
+add_subdirectory(plugins)
 add_subdirectory(client)
 
 install (FILES README LICENSE doc/box-protocol.txt

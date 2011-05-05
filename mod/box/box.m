@@ -1269,7 +1269,7 @@ extern struct auth_mech * auth_mech;
 static void
 box_auth(void * data)
 {
-	enum auth_result result = AUTH_PROTO_RO;
+	enum auth_result result = AUTH_PROTO_RW;
 
 	if (auth_mech) {
 
@@ -1377,10 +1377,10 @@ box_bound_to_primary(void *data __attribute__((unused)))
 
 		title("hot_standby/%s:%i", cfg.wal_feeder_ipaddr, cfg.wal_feeder_port);
 	} else {
-		say_info("I am primary");
-		status = "primary";
+		say_info("I am primary/main");
+		status = "primary/main";
 		box_updates_allowed = true;
-		title("primary");
+		title("primary/main");
 	}
 }
 
@@ -1506,17 +1506,18 @@ mod_init(void)
 
 	if (cfg.memcached != 0) {
 		fiber_server(tcp_server, cfg.primary_port, memcached_handler, NULL,
-			     memcached_bound_to_primary);
+		     memcached_bound_to_primary);
 	} else {
 		if (cfg.secondary_port != 0)
 			fiber_server(tcp_server, cfg.secondary_port, iproto_interact,
-				     box_process_ro, NULL);
+			     box_process_ro, NULL);
 
 		if (cfg.primary_port != 0)
 			fiber_server(tcp_server, cfg.primary_port, iproto_interact, box_process_rw,
-				     box_bound_to_primary);
+			     box_bound_to_primary);
 
-		fiber_server(tcp_server, 15312, box_auth, NULL, box_bound_to_primary);
+		fiber_server(tcp_server, cfg.main_port, box_auth, NULL,
+			box_bound_to_primary);
 	}
 
 	say_info("initialized");

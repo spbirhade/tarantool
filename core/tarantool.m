@@ -541,20 +541,37 @@ main(int argc, char **argv)
 
 	initialize(cfg.slab_alloc_arena, cfg.slab_alloc_minimal, cfg.slab_alloc_factor);
 	signal_init();
-
 	user_init();
-	user_add("test", (unsigned char*)"1234567812345678", 16);
 
+	if (cfg.users) {
+		int i;
+		for (i = 0 ; i < 256 ; i++) {
+			if (cfg.users[i] == NULL)
+				break;
+
+			struct user * u = user_add(cfg.users[i]->id,
+				(unsigned char*)cfg.users[i]->key, strlen(cfg.users[i]->key));
+
+			if (u == NULL)
+				say_crit("failed to add user\"%s\"", cfg.users[i]->id);
+		}
+	}
 	auth_init();
 
 	plug_init();
-	plug_attach_dir("../../plug/auth_chap");
+	plug_attach_dir(cfg.plug_dir);
 
 	plug_print();
 	auth_print();
 	user_print();
 
-	auth_mech = auth_match_name("chap");
+	if (!strcmp(cfg.auth, "none"))
+		say_warn("no authentication in use");
+	else {
+		auth_mech = auth_match_name(cfg.auth);
+		if (auth_mech == NULL)
+			say_crit("failed to match authentication mechanism \"%s\"", cfg.auth);
+	}
 
 	mod_init();
 	admin_init();

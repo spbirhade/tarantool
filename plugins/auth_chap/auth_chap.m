@@ -40,7 +40,7 @@
 #include <auth.h>
 #include <auth_chap.h>
 
-#include <plug/auth_chap/auth_chap.h>
+#include <plugins/auth_chap/auth_chap.h>
 
 extern pid_t master_pid;
 extern struct users users;

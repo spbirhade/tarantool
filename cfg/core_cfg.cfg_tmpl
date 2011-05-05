@@ -41,3 +41,17 @@ backlog=1024, ro
 
 # network io readahead
 readahead=16320
+
+# plugins directory (where plugins read from)
+plug_dir="../lib/tarantool", ro
+
+# authentication mechanism to use
+auth="none", ro
+
+# users list
+users = [
+  {
+	id  = "", ro, required
+	key = "", ro, required
+  }, ro
+], ro

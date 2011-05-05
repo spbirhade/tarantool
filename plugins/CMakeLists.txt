@@ -10,7 +10,7 @@ function(tarantool_plug plug)
   set_target_properties(tnt_${plug} PROPERTIES COMPILE_FLAGS
     "${core_cflags} " PREFIX "")
 
-  install (TARGETS tnt_${plug} DESTINATION plug)
+  install (TARGETS tnt_${plug} DESTINATION lib/tarantool)
 
 endfunction()
 

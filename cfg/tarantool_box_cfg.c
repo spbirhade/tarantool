@@ -41,10 +41,16 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->io_collect_interval = 0;
 	c->backlog = 1024;
 	c->readahead = 16320;
+	c->plug_dir = strdup("../lib/tarantool");
+	if (c->plug_dir == NULL) return CNF_NOMEMORY;
+	c->auth = strdup("none");
+	if (c->auth == NULL) return CNF_NOMEMORY;
+	c->users = NULL;
 	c->snap_dir = strdup(".");
 	if (c->snap_dir == NULL) return CNF_NOMEMORY;
 	c->wal_dir = strdup(".");
 	if (c->wal_dir == NULL) return CNF_NOMEMORY;
+	c->main_port = 0;
 	c->primary_port = 0;
 	c->secondary_port = 0;
 	c->too_long_threshold = 0.5;
@@ -65,6 +71,15 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->wal_feeder_ipaddr = NULL;
 	c->wal_feeder_port = 0;
 	c->namespace = NULL;
+	return 0;
+}
+
+static int
+acceptDefault_name__users(tarantool_cfg_users *c) {
+	c->id = strdup("");
+	if (c->id == NULL) return CNF_NOMEMORY;
+	c->key = strdup("");
+	if (c->key == NULL) return CNF_NOMEMORY;
 	return 0;
 }
 
@@ -136,11 +151,31 @@ static NameAtom _name__backlog[] = {
 static NameAtom _name__readahead[] = {
 	{ "readahead", -1, NULL }
 };
+static NameAtom _name__plug_dir[] = {
+	{ "plug_dir", -1, NULL }
+};
+static NameAtom _name__auth[] = {
+	{ "auth", -1, NULL }
+};
+static NameAtom _name__users[] = {
+	{ "users", -1, NULL }
+};
+static NameAtom _name__users__id[] = {
+	{ "users", -1, _name__users__id + 1 },
+	{ "id", -1, NULL }
+};
+static NameAtom _name__users__key[] = {
+	{ "users", -1, _name__users__key + 1 },
+	{ "key", -1, NULL }
+};
 static NameAtom _name__snap_dir[] = {
 	{ "snap_dir", -1, NULL }
 };
 static NameAtom _name__wal_dir[] = {
 	{ "wal_dir", -1, NULL }
+};
+static NameAtom _name__main_port[] = {
+	{ "main_port", -1, NULL }
 };
 static NameAtom _name__primary_port[] = {
 	{ "primary_port", -1, NULL }
@@ -451,6 +486,63 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGRANGE;
 		c->readahead = i32;
 	}
+	else if ( cmpNameAtoms( opt->name, _name__plug_dir) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->plug_dir == NULL) || strcmp(opt->paramValue.stringval, c->plug_dir) != 0))
+			return CNF_RDONLY;
+		c->plug_dir = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->plug_dir == NULL)
+			return CNF_NOMEMORY;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__auth) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->auth == NULL) || strcmp(opt->paramValue.stringval, c->auth) != 0))
+			return CNF_RDONLY;
+		c->auth = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->auth == NULL)
+			return CNF_NOMEMORY;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__users) ) {
+		if (opt->paramType != arrayType )
+			return CNF_WRONGTYPE;
+		ARRAYALLOC(c->users, 1, _name__users, check_rdonly, CNF_FLAG_STRUCT_NEW | CNF_FLAG_STRUCT_NOTSET);
+	}
+	else if ( cmpNameAtoms( opt->name, _name__users__id) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		ARRAYALLOC(c->users, opt->name->index + 1, _name__users, check_rdonly, CNF_FLAG_STRUCT_NEW | CNF_FLAG_STRUCT_NOTSET);
+		if (c->users[opt->name->index]->__confetti_flags & CNF_FLAG_STRUCT_NEW)
+			check_rdonly = 0;
+		c->users[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		c->users[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->users[opt->name->index]->id == NULL) || strcmp(opt->paramValue.stringval, c->users[opt->name->index]->id) != 0))
+			return CNF_RDONLY;
+		c->users[opt->name->index]->id = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->users[opt->name->index]->id == NULL)
+			return CNF_NOMEMORY;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__users__key) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		ARRAYALLOC(c->users, opt->name->index + 1, _name__users, check_rdonly, CNF_FLAG_STRUCT_NEW | CNF_FLAG_STRUCT_NOTSET);
+		if (c->users[opt->name->index]->__confetti_flags & CNF_FLAG_STRUCT_NEW)
+			check_rdonly = 0;
+		c->users[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		c->users[opt->name->index]->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->users[opt->name->index]->key == NULL) || strcmp(opt->paramValue.stringval, c->users[opt->name->index]->key) != 0))
+			return CNF_RDONLY;
+		c->users[opt->name->index]->key = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->users[opt->name->index]->key == NULL)
+			return CNF_NOMEMORY;
+	}
 	else if ( cmpNameAtoms( opt->name, _name__snap_dir) ) {
 		if (opt->paramType != stringType )
 			return CNF_WRONGTYPE;
@@ -472,6 +564,20 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 		c->wal_dir = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
 		if (opt->paramValue.stringval && c->wal_dir == NULL)
 			return CNF_NOMEMORY;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__main_port) ) {
+		if (opt->paramType != numberType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		long int i32 = strtol(opt->paramValue.numberval, NULL, 10);
+		if (i32 == 0 && errno == EINVAL)
+			return CNF_WRONGINT;
+		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
+			return CNF_WRONGRANGE;
+		if (check_rdonly && c->main_port != i32)
+			return CNF_RDONLY;
+		c->main_port = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__primary_port) ) {
 		if (opt->paramType != numberType )
@@ -1011,8 +1117,14 @@ typedef enum IteratorState {
 	S_name__io_collect_interval,
 	S_name__backlog,
 	S_name__readahead,
+	S_name__plug_dir,
+	S_name__auth,
+	S_name__users,
+	S_name__users__id,
+	S_name__users__key,
 	S_name__snap_dir,
 	S_name__wal_dir,
+	S_name__main_port,
 	S_name__primary_port,
 	S_name__secondary_port,
 	S_name__too_long_threshold,
@@ -1047,6 +1159,7 @@ typedef enum IteratorState {
 
 struct tarantool_cfg_iterator_t {
 	IteratorState	state;
+	int	idx_name__users;
 	int	idx_name__namespace;
 	int	idx_name__namespace__index;
 	int	idx_name__namespace__index__key_field;
@@ -1217,8 +1330,60 @@ again:
 			}
 			sprintf(*v, "%"PRId32, c->readahead);
 			snprintf(buf, PRINTBUFLEN-1, "readahead");
-			i->state = S_name__snap_dir;
+			i->state = S_name__plug_dir;
 			return buf;
+		case S_name__plug_dir:
+			*v = (c->plug_dir) ? strdup(c->plug_dir) : NULL;
+			if (*v == NULL && c->plug_dir) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			snprintf(buf, PRINTBUFLEN-1, "plug_dir");
+			i->state = S_name__auth;
+			return buf;
+		case S_name__auth:
+			*v = (c->auth) ? strdup(c->auth) : NULL;
+			if (*v == NULL && c->auth) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			snprintf(buf, PRINTBUFLEN-1, "auth");
+			i->state = S_name__users;
+			return buf;
+		case S_name__users:
+			i->state = S_name__users;
+		case S_name__users__id:
+		case S_name__users__key:
+			if (c->users && c->users[i->idx_name__users]) {
+				switch(i->state) {
+					case S_name__users:
+					case S_name__users__id:
+						*v = (c->users[i->idx_name__users]->id) ? strdup(c->users[i->idx_name__users]->id) : NULL;
+						if (*v == NULL && c->users[i->idx_name__users]->id) {
+							free(i);
+							out_warning(CNF_NOMEMORY, "No memory to output value");
+							return NULL;
+						}
+						snprintf(buf, PRINTBUFLEN-1, "users[%d].id", i->idx_name__users);
+						i->state = S_name__users__key;
+						return buf;
+					case S_name__users__key:
+						*v = (c->users[i->idx_name__users]->key) ? strdup(c->users[i->idx_name__users]->key) : NULL;
+						if (*v == NULL && c->users[i->idx_name__users]->key) {
+							free(i);
+							out_warning(CNF_NOMEMORY, "No memory to output value");
+							return NULL;
+						}
+						snprintf(buf, PRINTBUFLEN-1, "users[%d].key", i->idx_name__users);
+						i->state = S_name__users;
+						i->idx_name__users++;
+						return buf;
+					default:
+						break;
+				}
+			}
 		case S_name__snap_dir:
 			*v = (c->snap_dir) ? strdup(c->snap_dir) : NULL;
 			if (*v == NULL && c->snap_dir) {
@@ -1237,6 +1402,17 @@ again:
 				return NULL;
 			}
 			snprintf(buf, PRINTBUFLEN-1, "wal_dir");
+			i->state = S_name__main_port;
+			return buf;
+		case S_name__main_port:
+			*v = malloc(32);
+			if (*v == NULL) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			sprintf(*v, "%"PRId32, c->main_port);
+			snprintf(buf, PRINTBUFLEN-1, "main_port");
 			i->state = S_name__primary_port;
 			return buf;
 		case S_name__primary_port:
@@ -1594,9 +1770,29 @@ check_cfg_tarantool_cfg(tarantool_cfg *c) {
 	tarantool_cfg_iterator_t iterator, *i = &iterator;
 	int	res = 0;
 
-	if (c->primary_port == 0) {
+	i->idx_name__users = 0;
+	while (c->users && c->users[i->idx_name__users]) {
+		if (c->users[i->idx_name__users]->__confetti_flags & CNF_FLAG_STRUCT_NOTSET) {
+			(void)0;
+		} else {
+			if (c->users[i->idx_name__users]->id != NULL && strcmp(c->users[i->idx_name__users]->id, "") == 0) {
+				res++;
+				_name__users__id->index = i->idx_name__users;
+				out_warning(CNF_NOTSET, "Option '%s' is not set (or has a default value)", dumpOptDef(_name__users__id));
+			}
+			if (c->users[i->idx_name__users]->key != NULL && strcmp(c->users[i->idx_name__users]->key, "") == 0) {
+				res++;
+				_name__users__key->index = i->idx_name__users;
+				out_warning(CNF_NOTSET, "Option '%s' is not set (or has a default value)", dumpOptDef(_name__users__key));
+			}
+		}
+
+		i->idx_name__users++;
+	}
+
+	if (c->main_port == 0) {
 		res++;
-		out_warning(CNF_NOTSET, "Option '%s' is not set (or has a default value)", dumpOptDef(_name__primary_port));
+		out_warning(CNF_NOTSET, "Option '%s' is not set (or has a default value)", dumpOptDef(_name__main_port));
 	}
 	if (c->namespace == NULL) {
 		res++;
@@ -1689,6 +1885,16 @@ cleanFlags(tarantool_cfg* c, OptDef* opt) {
 	tarantool_cfg_iterator_t iterator, *i = &iterator;
 
 
+	if (c->users != NULL) {
+		i->idx_name__users = 0;
+		while (c->users[i->idx_name__users] != NULL) {
+			c->users[i->idx_name__users]->__confetti_flags &= ~CNF_FLAG_STRUCT_NEW;
+
+
+			i->idx_name__users++;
+		}
+	}
+
 	if (c->namespace != NULL) {
 		i->idx_name__namespace = 0;
 		while (c->namespace[i->idx_name__namespace] != NULL) {
@@ -1748,12 +1954,38 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 	dst->io_collect_interval = src->io_collect_interval;
 	dst->backlog = src->backlog;
 	dst->readahead = src->readahead;
+	dst->plug_dir = src->plug_dir == NULL ? NULL : strdup(src->plug_dir);
+	if (src->plug_dir != NULL && dst->plug_dir == NULL)
+		return CNF_NOMEMORY;
+	dst->auth = src->auth == NULL ? NULL : strdup(src->auth);
+	if (src->auth != NULL && dst->auth == NULL)
+		return CNF_NOMEMORY;
+
+	dst->users = NULL;
+	if (src->users != NULL) {
+		i->idx_name__users = 0;
+		ARRAYALLOC(dst->users, 1, _name__users, 0, 0);
+
+		while (src->users[i->idx_name__users] != NULL) {
+			ARRAYALLOC(dst->users, i->idx_name__users + 1, _name__users, 0, 0);
+
+			dst->users[i->idx_name__users]->id = src->users[i->idx_name__users]->id == NULL ? NULL : strdup(src->users[i->idx_name__users]->id);
+			if (src->users[i->idx_name__users]->id != NULL && dst->users[i->idx_name__users]->id == NULL)
+				return CNF_NOMEMORY;
+			dst->users[i->idx_name__users]->key = src->users[i->idx_name__users]->key == NULL ? NULL : strdup(src->users[i->idx_name__users]->key);
+			if (src->users[i->idx_name__users]->key != NULL && dst->users[i->idx_name__users]->key == NULL)
+				return CNF_NOMEMORY;
+
+			i->idx_name__users++;
+		}
+	}
 	dst->snap_dir = src->snap_dir == NULL ? NULL : strdup(src->snap_dir);
 	if (src->snap_dir != NULL && dst->snap_dir == NULL)
 		return CNF_NOMEMORY;
 	dst->wal_dir = src->wal_dir == NULL ? NULL : strdup(src->wal_dir);
 	if (src->wal_dir != NULL && dst->wal_dir == NULL)
 		return CNF_NOMEMORY;
+	dst->main_port = src->main_port;
 	dst->primary_port = src->primary_port;
 	dst->secondary_port = src->secondary_port;
 	dst->too_long_threshold = src->too_long_threshold;
@@ -1845,6 +2077,26 @@ destroy_tarantool_cfg(tarantool_cfg* c) {
 		free(c->pid_file);
 	if (c->logger != NULL)
 		free(c->logger);
+	if (c->plug_dir != NULL)
+		free(c->plug_dir);
+	if (c->auth != NULL)
+		free(c->auth);
+
+	if (c->users != NULL) {
+		i->idx_name__users = 0;
+		while (c->users[i->idx_name__users] != NULL) {
+			if (c->users[i->idx_name__users]->id != NULL)
+				free(c->users[i->idx_name__users]->id);
+			if (c->users[i->idx_name__users]->key != NULL)
+				free(c->users[i->idx_name__users]->key);
+
+			free(c->users[i->idx_name__users]);
+
+			i->idx_name__users++;
+		}
+
+		free(c->users);
+	}
 	if (c->snap_dir != NULL)
 		free(c->snap_dir);
 	if (c->wal_dir != NULL)
@@ -1988,6 +2240,39 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 			return diff;
 		}
 	}
+	if (confetti_strcmp(c1->plug_dir, c2->plug_dir) != 0) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->plug_dir");
+
+		return diff;
+}
+	if (confetti_strcmp(c1->auth, c2->auth) != 0) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->auth");
+
+		return diff;
+}
+
+	i1->idx_name__users = 0;
+	i2->idx_name__users = 0;
+	while (c1->users != NULL && c1->users[i1->idx_name__users] != NULL && c2->users != NULL && c2->users[i2->idx_name__users] != NULL) {
+		if (confetti_strcmp(c1->users[i1->idx_name__users]->id, c2->users[i2->idx_name__users]->id) != 0) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->users[]->id");
+
+			return diff;
+}
+		if (confetti_strcmp(c1->users[i1->idx_name__users]->key, c2->users[i2->idx_name__users]->key) != 0) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->users[]->key");
+
+			return diff;
+}
+
+		i1->idx_name__users++;
+		i2->idx_name__users++;
+	}
+	if (!(c1->users == c2->users && c1->users == NULL) && (c1->users == NULL || c2->users == NULL || c1->users[i1->idx_name__users] != NULL || c2->users[i2->idx_name__users] != NULL)) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->users[]");
+
+		return diff;
+	}
 	if (confetti_strcmp(c1->snap_dir, c2->snap_dir) != 0) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->snap_dir");
 
@@ -1998,6 +2283,11 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 
 		return diff;
 }
+	if (c1->main_port != c2->main_port) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->main_port");
+
+		return diff;
+	}
 	if (c1->primary_port != c2->primary_port) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->primary_port");
 
