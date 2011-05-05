@@ -27,6 +27,7 @@
  */
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_proto.h>
 #include <tnt_tuple.h>

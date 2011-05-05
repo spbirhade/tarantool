@@ -1,5 +1,6 @@
 add_library(connector_c
 	tnt.c
+	tnt_mem.c
 	tnt_io.c
 	tnt_raw.c
 	tnt_aes.c

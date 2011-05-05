@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>

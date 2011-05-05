@@ -35,6 +35,7 @@
 #include <errno.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -172,7 +173,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 
 	} else {
 
-		data = malloc(size);
+		data = tnt_mem_alloc(size);
 
 		if (data == NULL) 
 			return TNT_EMEMORY;
@@ -182,7 +183,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 
 		if (r != TNT_EOK) {
 
-			free(data);
+			tnt_mem_free(data);
 			return r;
 		}
 
@@ -233,7 +234,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	}
 
 	if (data)
-		free(data);
+		tnt_mem_free(data);
 
 	return r;
 }

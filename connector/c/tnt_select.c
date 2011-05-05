@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -80,6 +81,6 @@ tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 
 	result = tnt_io_sendv(t, v, 3);
 
-	free(data_enc);
+	tnt_mem_free(data_enc);
 	return result;
 }

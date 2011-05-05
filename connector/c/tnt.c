@@ -38,6 +38,7 @@
 #include <tnt_result.h>
 #include <tnt_aes.h>
 #include <tnt_cmac.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_auth_chap.h>
@@ -65,6 +66,13 @@ tnt_init(int rbuf_size, int sbuf_size)
 	}
 
 	return t;
+}
+
+void
+tnt_init_alloc(tnt_t * t, tnt_mallocf_t m, tnt_freef_t f)
+{
+	(void)t;
+	tnt_mem_init(m, f);
 }
 
 tnt_result_t

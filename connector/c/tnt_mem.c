@@ -28,69 +28,27 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
-#include <unistd.h>
-
 #include <tnt_result.h>
 #include <tnt_mem.h>
-#include <tnt.h>
-#include <tnt_io.h>
-#include <tnt_tuple.h>
-#include <tnt_proto.h>
-#include <tnt_leb128.h>
-#include <tnt_delete.h>
 
-tnt_result_t
-tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
+static tnt_mallocf_t _tnt_malloc = (tnt_mallocf_t)malloc;
+static tnt_freef_t   _tnt_free   = (tnt_freef_t)free;
+
+void
+tnt_mem_init(tnt_mallocf_t m, tnt_freef_t f)
 {
-	char * td;
-	int ts;
-	tnt_result_t result = tnt_tuple_pack(key, &td, &ts);
-
-	if (result != TNT_EOK)
-		return result;
-
-	tnt_proto_header_t hdr;
-
-	hdr.type  = TNT_PROTO_TYPE_DELETE;
-	hdr.len   = sizeof(tnt_proto_delete_t) + ts;
-	hdr.reqid = reqid;
-
-	tnt_proto_delete_t hdr_del;
-	hdr_del.ns = ns;
-
-	struct iovec v[3];
-
-	v[0].iov_base = &hdr;
-	v[0].iov_len  = sizeof(tnt_proto_header_t);
-	v[1].iov_base = &hdr_del;
-	v[1].iov_len  = sizeof(tnt_proto_delete_t);
-	v[2].iov_base = td;
-	v[2].iov_len  = ts;
-
-	result = tnt_io_sendv(t, v, 3);
-
-	tnt_mem_free(td);
-	return result;
+	_tnt_malloc = m;
+	_tnt_free = f;
 }
 
-tnt_result_t
-tnt_delete(tnt_t * t, int reqid, int ns, char * key, int key_size)
+void*
+tnt_mem_alloc(int size)
 {
-	tnt_result_t result;
-	tnt_tuple_t k;
+	return _tnt_malloc(size);
+}
 
-	tnt_tuple_init(&k);
-
-	result = tnt_tuple_add(&k, key, key_size);
-
-	if (result != TNT_EOK)
-		return result;
-
-	result = tnt_delete_tuple(t, reqid, ns, &k);
-
-	tnt_tuple_free(&k);
-	return result;
+void
+tnt_mem_free(void * ptr)
+{
+	_tnt_free(ptr);
 }

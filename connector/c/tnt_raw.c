@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_raw.h>
 
@@ -47,7 +48,7 @@ tnt_raw_send(tnt_t * t, char * buf, int size)
 int
 tnt_raw_sendv(tnt_t * t, int count, ...)
 {
-	struct iovec * v = malloc(count * sizeof(struct iovec));
+	struct iovec * v = tnt_mem_alloc(count * sizeof(struct iovec));
 
 	if (v == NULL)
 		return -1;
@@ -64,8 +65,8 @@ tnt_raw_sendv(tnt_t * t, int count, ...)
 	}
 
 	int r = writev(t->fd, v, count);
-	free(v);
 
+	tnt_mem_free(v);
 	return r;
 }
 

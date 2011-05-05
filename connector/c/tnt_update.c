@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -59,8 +60,8 @@ tnt_update_free(tnt_update_t * update)
 
 		next = op->next;
 
-		free(op->data);
-		free(op);
+		tnt_mem_free(op->data);
+		tnt_mem_free(op);
 	}
 }
 
@@ -68,7 +69,7 @@ tnt_result_t
 tnt_update_add(tnt_update_t * update,
 	tnt_update_type_t type, int field, char * data, int size)
 {
-	tnt_update_op_t * op = malloc(sizeof(tnt_update_op_t));
+	tnt_update_op_t * op = tnt_mem_alloc(sizeof(tnt_update_op_t));
 
 	if (op == NULL)
 		return TNT_EMEMORY;
@@ -104,19 +105,19 @@ tnt_update_add(tnt_update_t * update,
 			break;
 
 		default:
-			free(op);
+			tnt_mem_free(op);
 			return TNT_EFAIL;
 	}
 
 	op->field = field;
 
 	op->size  = size;
-	op->data  = malloc(size);
+	op->data  = tnt_mem_alloc(size);
 	op->next  = NULL;
 
 	if (op->data == NULL ) {
 
-		free(op);
+		tnt_mem_free(op);
 		return TNT_EMEMORY;
 	}
 
@@ -139,7 +140,7 @@ tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 	/* <count><operation>+ */
 
 	*size = 4 + update->size_enc;
-	*data = malloc(*size);
+	*data = tnt_mem_alloc(*size);
 
 	if (*data == NULL)
 		return TNT_EMEMORY;
@@ -194,7 +195,7 @@ tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 
 	if ( result != TNT_EOK ) {
 
-		free(td);
+		tnt_mem_free(td);
 		return result;
 	}
 
@@ -222,8 +223,8 @@ tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 
 	result = tnt_io_sendv(t, v, 4);
 
-	free(td);
-	free(ud);
+	tnt_mem_free(td);
+	tnt_mem_free(ud);
 	return result;
 }
 

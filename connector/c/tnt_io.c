@@ -35,6 +35,7 @@
 #include <errno.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 
@@ -43,7 +44,7 @@ tnt_io_init(tnt_t * t)
 {
 	if (t->rbuf_size) {
 
-		t->rbuf = malloc(t->rbuf_size);
+		t->rbuf = tnt_mem_alloc(t->rbuf_size);
 
 		if (t->rbuf == NULL)
 			return TNT_EMEMORY;
@@ -51,7 +52,7 @@ tnt_io_init(tnt_t * t)
 
 	if (t->sbuf_size) {
 
-		t->sbuf = malloc(t->sbuf_size);
+		t->sbuf = tnt_mem_alloc(t->sbuf_size);
 
 		if (t->sbuf == NULL) {
 
@@ -72,10 +73,10 @@ void
 tnt_io_free(tnt_t * t)
 {
 	if (t->rbuf)
-		free(t->rbuf);
+		tnt_mem_free(t->rbuf);
 
 	if (t->sbuf)
-		free(t->sbuf);
+		tnt_mem_free(t->sbuf);
 }
 
 tnt_result_t

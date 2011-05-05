@@ -1,3 +1,5 @@
+#ifndef TNT_MEM_H_
+#define TNT_MEM_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -24,73 +26,16 @@
  * SUCH DAMAGE.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+typedef void * (*tnt_mallocf_t)(int size);
+typedef void (*tnt_freef_t)(void * ptr);
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
-#include <unistd.h>
+void
+tnt_mem_init(tnt_mallocf_t m, tnt_freef_t f);
 
-#include <tnt_result.h>
-#include <tnt_mem.h>
-#include <tnt.h>
-#include <tnt_io.h>
-#include <tnt_tuple.h>
-#include <tnt_proto.h>
-#include <tnt_leb128.h>
-#include <tnt_delete.h>
+void*
+tnt_mem_alloc(int size);
 
-tnt_result_t
-tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
-{
-	char * td;
-	int ts;
-	tnt_result_t result = tnt_tuple_pack(key, &td, &ts);
+void
+tnt_mem_free(void * ptr);
 
-	if (result != TNT_EOK)
-		return result;
-
-	tnt_proto_header_t hdr;
-
-	hdr.type  = TNT_PROTO_TYPE_DELETE;
-	hdr.len   = sizeof(tnt_proto_delete_t) + ts;
-	hdr.reqid = reqid;
-
-	tnt_proto_delete_t hdr_del;
-	hdr_del.ns = ns;
-
-	struct iovec v[3];
-
-	v[0].iov_base = &hdr;
-	v[0].iov_len  = sizeof(tnt_proto_header_t);
-	v[1].iov_base = &hdr_del;
-	v[1].iov_len  = sizeof(tnt_proto_delete_t);
-	v[2].iov_base = td;
-	v[2].iov_len  = ts;
-
-	result = tnt_io_sendv(t, v, 3);
-
-	tnt_mem_free(td);
-	return result;
-}
-
-tnt_result_t
-tnt_delete(tnt_t * t, int reqid, int ns, char * key, int key_size)
-{
-	tnt_result_t result;
-	tnt_tuple_t k;
-
-	tnt_tuple_init(&k);
-
-	result = tnt_tuple_add(&k, key, key_size);
-
-	if (result != TNT_EOK)
-		return result;
-
-	result = tnt_delete_tuple(t, reqid, ns, &k);
-
-	tnt_tuple_free(&k);
-	return result;
-}
+#endif

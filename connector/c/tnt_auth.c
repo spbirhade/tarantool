@@ -37,6 +37,7 @@
 #include <errno.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt_aes.h>
 #include <tnt_cmac.h>
 #include <tnt.h>

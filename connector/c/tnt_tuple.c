@@ -29,7 +29,9 @@
 #include <string.h>
 
 #include <tnt_result.h>
+#include <tnt_mem.h>
 #include <tnt_leb128.h>
+#include <tnt.h>
 #include <tnt_tuple.h>
 
 void
@@ -55,7 +57,7 @@ tnt_tuples_free(tnt_tuples_t * tuples)
 tnt_tuple_t*
 tnt_tuples_add(tnt_tuples_t * tuples)
 {
-	tnt_tuple_t * t = malloc(sizeof(tnt_tuple_t));
+	tnt_tuple_t * t = tnt_mem_alloc(sizeof(tnt_tuple_t));
 
 	if (t == NULL)
 		return NULL;
@@ -85,7 +87,7 @@ tnt_tuples_pack(tnt_tuples_t * tuples, char ** data, int * size)
 	for (t = tuples->head ; t ; t = t->next)
 		*size += t->size_enc;
 
-	*data = malloc(*size);
+	*data = tnt_mem_alloc(*size);
 
 	if (*data == NULL)
 		return TNT_EMEMORY;
@@ -102,7 +104,7 @@ tnt_tuples_pack(tnt_tuples_t * tuples, char ** data, int * size)
 
 		if (result != TNT_EOK) {
 
-			free(*data);
+			tnt_mem_free(*data);
 			return result;
 		}
 
@@ -173,15 +175,16 @@ tnt_tuple_free(tnt_tuple_t * tuple)
 
 		next = f->next;
 		
-		free(f->data);
-		free(f);
+		tnt_mem_free(f->data);
+		tnt_mem_free(f);
 	}
 }
 
 tnt_result_t
 tnt_tuple_add(tnt_tuple_t * tuple, char * data, int size)
 {
-	tnt_tuple_field_t * f = malloc(sizeof(tnt_tuple_field_t));
+	tnt_tuple_field_t * f =
+		tnt_mem_alloc(sizeof(tnt_tuple_field_t));
 
 	if (f == NULL)
 		return TNT_EMEMORY;
@@ -196,12 +199,12 @@ tnt_tuple_add(tnt_tuple_t * tuple, char * data, int size)
 
 	f->size = size;
 	f->size_leb = 0;
-	f->data = malloc(size);
+	f->data = tnt_mem_alloc(size);
 	f->next = NULL;
 
 	if (f->data == NULL) {
 
-		free(f);
+		tnt_mem_free(f);
 		return TNT_EMEMORY;
 	}
 
@@ -221,7 +224,7 @@ tnt_tuple_pack(tnt_tuple_t * tuple, char ** data, int * size)
 	tnt_tuple_field_t * f;
 
 	*size = tuple->size_enc;
-	*data = malloc(tuple->size_enc);
+	*data = tnt_mem_alloc(tuple->size_enc);
 
 	if (*data == NULL)
 		return TNT_EMEMORY;

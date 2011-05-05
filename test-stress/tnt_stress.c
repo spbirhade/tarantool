@@ -214,7 +214,7 @@ main(int argc, char * argv[])
 
 			case 'h':
 			default:
-				printf("tarantool stress-suite\n\n");
+				printf("tarantool stress-suite.\n\n");
 
 				printf("usage: [-t auth  = chap]\n"
 				       "       [-i id    = test]\n"
@@ -229,7 +229,7 @@ main(int argc, char * argv[])
 		}
 	}
 
-	printf("tarantool stress-suite\n\n");
+	printf("tarantool stress-suite.\n\n");
 
 	printf("server: %s (%d)\n", host, port);
 	printf("id:     %s\n", id);
