@@ -1,1 +1,15 @@
-add_library(connector_c client.c)
+add_library(connector_c
+	tnt.c
+	tnt_io.c
+	tnt_raw.c
+	tnt_aes.c
+	tnt_cmac.c
+	tnt_auth.c
+    tnt_leb128.c
+	tnt_tuple.c
+	tnt_insert.c
+	tnt_update.c
+	tnt_delete.c
+	tnt_select.c
+	tnt_ping.c
+	tnt_recv.c)

@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <connector/c/client.h>
-#include <auth_chap.h>
+#include <libtnt.h>
 
 int 
 main(int argc, char * argv[])
@@ -11,28 +10,34 @@ main(int argc, char * argv[])
 	(void)argc;
 	(void)argv;
 
-	struct tnt * tnt = tnt_init();
+	tnt_t * t = tnt_init(8096, 8096);
 
-	int result = tnt_init_auth(tnt,
-		TNT_AUTH_CHAP, TNT_PROTO_RW, "test", "1234567812345678", 16);
+	if (t == NULL) {
 
-	if ( result != TNT_EOK ) {
-
-		printf("tnt_init_auth() failed\n");
+		printf("tnt_init() failed\n");
 		return 1;
 	}
 
-	result = tnt_connect(tnt, "localhost", 15312);
+	tnt_result_t result = tnt_init_auth(t, TNT_AUTH_CHAP, TNT_PROTO_RW,
+			"test",
+			(unsigned char*)"1234567812345678", 16);
 
 	if ( result != TNT_EOK ) {
 
-		printf("error: %s\n", tnt_error(result));
+		printf("tnt_init_auth() failed: %s\n", tnt_error(result));
+		return 1;
+	}
+
+	result = tnt_connect(t, "localhost", 15312);
+
+	if ( result != TNT_EOK ) {
+
+		printf("tnt_connect() failed: %s\n", tnt_error(result));
 		return 1;
 	}
 
 	printf("connected\n");
 
-	tnt_free(tnt);
-
+	tnt_free(t);
 	return 0;
 }

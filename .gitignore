@@ -25,3 +25,5 @@ CPackSourceConfig.cmake
 _CPack_Packages
 install_manifest.txt
 tarantool-*.tar.gz
+*.snap
+*.xlog

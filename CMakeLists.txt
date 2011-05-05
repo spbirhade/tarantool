@@ -129,6 +129,7 @@ endif()
 #
 include_directories("${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/connector/c/include")
 include_directories("${PROJECT_BINARY_DIR}/include")
 
 #
@@ -181,6 +182,21 @@ if (ENABLE_STATIC)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static")
 endif()
 
+# function to build tarantool clients that use connector/c
+function(tarantool_client client_name)
+  set (client_sources ${ARGV})
+  list(REMOVE_ITEM client_sources ${client_name})
+
+  add_executable(${client_name} ${client_sources})
+
+  set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
+	"${core_cflags}")
+
+  target_link_libraries (${client_name} connector_c)
+
+  install (TARGETS ${client_name} DESTINATION bin)
+endfunction()
+
 # CMake believes that Objective C is a flavor of C++, not C,
 # and uses g++ compiler for .m files. Since talking CMake out
 # of this idea is difficult, and since gcc or g++ are only
@@ -195,8 +211,9 @@ add_subdirectory(cfg)
 add_subdirectory(connector)
 add_subdirectory(core)
 add_subdirectory(mod)
-add_subdirectory(test)
 add_subdirectory(plugins)
+add_subdirectory(test)
+add_subdirectory(test-stress)
 add_subdirectory(client)
 
 install (FILES README LICENSE doc/box-protocol.txt
