@@ -69,10 +69,11 @@ tnt_init(int rbuf_size, int sbuf_size)
 }
 
 void
-tnt_init_alloc(tnt_t * t, tnt_mallocf_t m, tnt_freef_t f)
+tnt_init_alloc(tnt_t * t,
+	tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f)
 {
 	(void)t;
-	tnt_mem_init(m, f);
+	tnt_mem_init(m, r, d, f);
 }
 
 tnt_result_t
@@ -81,9 +82,6 @@ tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
 	unsigned char * key, int key_size)
 {
 	t->auth_type = auth;
-	t->auth_proto = proto;
-
-	t->auth_id_size = strlen(id);
 
 	switch (t->auth_type) {
 
@@ -92,7 +90,7 @@ tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
 
 		case TNT_AUTH_CHAP:
 
-			if ( key_size != TNT_AES_CMAC_KEY_LENGTH )
+			if ( t->auth_key_size > TNT_AES_CMAC_KEY_LENGTH )
 				return TNT_EBADVAL;
 
 			if ( (t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE )
@@ -100,10 +98,15 @@ tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
 			break;
 	}
 
-	t->auth_id = strdup(id);
+	t->auth_proto = proto;
+
+	t->auth_id_size = strlen(id);
+	t->auth_id = malloc(t->auth_id_size);
 
 	if (t->auth_id == NULL)
 		return TNT_EMEMORY;
+
+	memcpy(t->auth_id, id, t->auth_id_size);
 
 	t->auth_key_size = key_size;
 	t->auth_key = malloc(t->auth_key_size);

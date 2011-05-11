@@ -1,5 +1,5 @@
-#ifndef TNT_MEM_H_
-#define TNT_MEM_H_
+#ifndef TNT_MAP_H_
+#define TNT_MAP_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -26,24 +26,76 @@
  * SUCH DAMAGE.
  */
 
-typedef void * (*tnt_mallocf_t)(int size);
-typedef void * (*tnt_reallocf_t)(void * ptr, int size);
-typedef void * (*tnt_dupf_t)(char * sz);
-typedef void   (*tnt_freef_t)(void * ptr);
+typedef enum {
+
+	TNT_MAP_OFFLINE,
+	TNT_MAP_ONLINE
+
+} tnt_map_status_t;
+
+typedef struct {
+
+	int idx;
+	tnt_map_status_t status;
+	
+	char * host;
+	int port;
+	int points;
+	int mem;
+	int reserved;
+
+	unsigned long long stat_maps;
+
+} tnt_map_server_t;
+
+typedef struct {
+
+	int idx;
+	unsigned int point;
+
+} tnt_map_ptr_t;
+
+typedef struct {
+
+	unsigned long points;
+	int mem;
+
+	tnt_map_ptr_t * map;
+
+	int servers_count;
+	int servers_max;
+	int servers_per;
+	int servers_online;
+
+	tnt_map_server_t * servers;
+
+} tnt_map_t;
+
+tnt_result_t
+tnt_map_init(tnt_map_t * map, int per);
 
 void
-tnt_mem_init(tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
+tnt_map_free(tnt_map_t * map);
 
-void*
-tnt_mem_alloc(int size);
+tnt_result_t
+tnt_map_rehash(tnt_map_t * map);
 
-void*
-tnt_mem_realloc(void * ptr, int size);
-
-char*
-tnt_mem_dup(char * sz);
+int
+tnt_map_add(tnt_map_t * map, char * host, int port, int mem);
 
 void
-tnt_mem_free(void * ptr);
+tnt_map_online(tnt_map_t * map, int idx);
+
+void
+tnt_map_offline(tnt_map_t * map, int idx);
+
+void
+tnt_map_remap(tnt_map_t * map, int idx, char * host, int port);
+
+tnt_map_server_t*
+tnt_map(tnt_map_t * map, char * key, int size);
+
+void
+tnt_map_show(tnt_map_t * map);
 
 #endif

@@ -25,6 +25,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
 typedef enum {
 
 	TNT_AUTH_NONE,
@@ -69,7 +70,8 @@ tnt_t*
 tnt_init(int rbuf_size, int sbuf_size);
 
 void
-tnt_init_alloc(tnt_t * t, tnt_mallocf_t m, tnt_freef_t f);
+tnt_init_alloc(tnt_t * t,
+	tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
 
 tnt_result_t
 tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,

@@ -171,7 +171,7 @@ main(int argc, char * argv[])
 
 	while ((opt = getopt(argc, argv, "t:i:k:a:p:c:r:s:hb")) != -1 ) {
 		switch (opt) {
-		case 't':
+			case 't':
 
 				if (!strcmp(optarg, "chap"))
 					auth = TNT_AUTH_CHAP;
@@ -250,7 +250,7 @@ main(int argc, char * argv[])
 			id,
 			(unsigned char*)key, key_size);
 
-	if ( result != TNT_EOK ) {
+	if (result != TNT_EOK) {
 
 		printf("tnt_init_auth() failed: %s\n", tnt_error(result));
 		return 1;
@@ -258,7 +258,7 @@ main(int argc, char * argv[])
 
 	result = tnt_connect(t, host, port);
 
-	if ( result != TNT_EOK ) {
+	if (result != TNT_EOK) {
 
 		printf("tnt_connect() failed: %s\n", tnt_error(result));
 		return 1;

@@ -31,20 +31,36 @@
 #include <tnt_result.h>
 #include <tnt_mem.h>
 
-static tnt_mallocf_t _tnt_malloc = (tnt_mallocf_t)malloc;
-static tnt_freef_t   _tnt_free   = (tnt_freef_t)free;
+static tnt_mallocf_t  _tnt_malloc  = (tnt_mallocf_t)malloc;
+static tnt_reallocf_t _tnt_realloc = (tnt_reallocf_t)realloc;
+static tnt_freef_t    _tnt_free    = (tnt_freef_t)free;
+static tnt_dupf_t     _tnt_dup     = (tnt_dupf_t)strdup;
 
 void
-tnt_mem_init(tnt_mallocf_t m, tnt_freef_t f)
+tnt_mem_init(tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f)
 {
-	_tnt_malloc = m;
-	_tnt_free = f;
+	_tnt_malloc  = m;
+	_tnt_realloc = r;
+	_tnt_dup     = d;
+	_tnt_free    = f;
 }
 
 void*
 tnt_mem_alloc(int size)
 {
 	return _tnt_malloc(size);
+}
+
+void*
+tnt_mem_realloc(void * ptr, int size)
+{
+	return _tnt_realloc(ptr, size);
+}
+
+char*
+tnt_mem_dup(char * sz)
+{
+	return _tnt_dup(sz);
 }
 
 void

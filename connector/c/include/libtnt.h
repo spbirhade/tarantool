@@ -38,5 +38,6 @@
 #include <tnt_ping.h>
 #include <tnt_raw.h>
 #include <tnt_recv.h>
+#include <tnt_map.h>
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef TNT_MEM_H_
-#define TNT_MEM_H_
+#ifndef TNT_MD5_H_
+#define TNT_MD5_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -26,24 +26,44 @@
  * SUCH DAMAGE.
  */
 
-typedef void * (*tnt_mallocf_t)(int size);
-typedef void * (*tnt_reallocf_t)(void * ptr, int size);
-typedef void * (*tnt_dupf_t)(char * sz);
-typedef void   (*tnt_freef_t)(void * ptr);
+/* Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All
+ * rights reserved.
+ *
+ * License to copy and use this software is granted provided that it
+ * is identified as the "RSA Data Security, Inc. MD5 Message-Digest
+ * Algorithm" in all material mentioning or referencing this software
+ * or this function.
+ *
+ * License is also granted to make and use derivative works provided
+ * that such works are identified as "derived from the RSA Data
+ * Security, Inc. MD5 Message-Digest Algorithm" in all material
+ * mentioning or referencing the derived work.
+ * RSA Data Security, Inc. makes no representations concerning either
+ * the merchantability of this software or the suitability of this
+ * software for any particular purpose. It is provided "as is"
+ * without express or implied warranty of any kind.
+ *
+ * These notices must be retained in any copies of any part of this
+ * documentation and/or software.
+ */
+
+#define TNT_MD5_DIGEST_LENGTH (16)
+
+typedef struct {
+
+  uint32_t state[4];
+  uint32_t count[2];
+  unsigned char buffer[64];
+
+} tnt_md5_t;
 
 void
-tnt_mem_init(tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
-
-void*
-tnt_mem_alloc(int size);
-
-void*
-tnt_mem_realloc(void * ptr, int size);
-
-char*
-tnt_mem_dup(char * sz);
+tnt_md5_init(tnt_md5_t *);
 
 void
-tnt_mem_free(void * ptr);
+tnt_md5_update(tnt_md5_t *, unsigned char *, unsigned int);
+
+void
+tnt_md5_final(unsigned char [TNT_MD5_DIGEST_LENGTH], tnt_md5_t *);
 
 #endif
