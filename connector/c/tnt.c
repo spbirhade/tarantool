@@ -82,6 +82,9 @@ tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
 	unsigned char * key, int key_size)
 {
 	t->auth_type = auth;
+	t->auth_proto = proto;
+
+	t->auth_id_size = strlen(id);
 
 	switch (t->auth_type) {
 
@@ -89,24 +92,18 @@ tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
 			return TNT_EOK;
 
 		case TNT_AUTH_CHAP:
-
-			if ( t->auth_key_size > TNT_AES_CMAC_KEY_LENGTH )
+			if (key_size != TNT_AES_CMAC_KEY_LENGTH)
 				return TNT_EBADVAL;
 
-			if ( (t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE )
+			if ((t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE)
 				return TNT_EBADVAL;
 			break;
 	}
 
-	t->auth_proto = proto;
-
-	t->auth_id_size = strlen(id);
-	t->auth_id = malloc(t->auth_id_size);
+	t->auth_id = strdup(id);
 
 	if (t->auth_id == NULL)
 		return TNT_EMEMORY;
-
-	memcpy(t->auth_id, id, t->auth_id_size);
 
 	t->auth_key_size = key_size;
 	t->auth_key = malloc(t->auth_key_size);
