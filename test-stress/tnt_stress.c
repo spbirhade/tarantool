@@ -238,7 +238,7 @@ main(int argc, char * argv[])
 	printf("sbuf:   %d\n", sbuf);
 	printf("count:  %d\n\n", count);
 
-	tnt_t * t = tnt_init(rbuf, sbuf);
+	tnt_t * t = tnt_init(TNT_PROTO_RW, rbuf, sbuf);
 
 	if (t == NULL) {
 
@@ -246,7 +246,7 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	tnt_result_t result = tnt_init_auth(t, auth, TNT_PROTO_RW,
+	tnt_result_t result = tnt_set_auth(t, auth,
 			id,
 			(unsigned char*)key, key_size);
 
@@ -255,6 +255,8 @@ main(int argc, char * argv[])
 		printf("tnt_init_auth() failed: %s\n", tnt_error(result));
 		return 1;
 	}
+
+	tnt_set_tmout(t, 8, 2, 2);
 
 	result = tnt_connect(t, host, port);
 

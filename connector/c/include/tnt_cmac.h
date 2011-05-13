@@ -1,6 +1,31 @@
 #ifndef TNT_CMAC_H_
 #define TNT_CMAC_H_
 
+/*
+ * Copyright (C) 2011 Mail.RU
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitnted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 /* AES-CMAC OpenBSD implementation */
 
 /*-
@@ -29,11 +54,18 @@ typedef struct {
 	u_int8_t	  M_last[16];
 	u_int		  M_n;
 
-} TNT_AES_CMAC_CTX;
+} tnt_aes_cmac_ctx;
 
-void TNT_AES_CMAC_Init(TNT_AES_CMAC_CTX *);
-void TNT_AES_CMAC_SetKey(TNT_AES_CMAC_CTX *, const u_int8_t [TNT_AES_CMAC_KEY_LENGTH]);
-void TNT_AES_CMAC_Update(TNT_AES_CMAC_CTX *, const u_int8_t *, u_int);
-void TNT_AES_CMAC_Final(u_int8_t [TNT_AES_CMAC_DIGEST_LENGTH], TNT_AES_CMAC_CTX *);
+void
+tnt_aes_cmac_init(tnt_aes_cmac_ctx *);
+
+void
+tnt_aes_cmac_setkey(tnt_aes_cmac_ctx *, const u_int8_t [TNT_AES_CMAC_KEY_LENGTH]);
+
+void
+tnt_aes_cmac_update(tnt_aes_cmac_ctx *, const u_int8_t *, u_int);
+
+void
+tnt_aes_cmac_final(u_int8_t [TNT_AES_CMAC_DIGEST_LENGTH], tnt_aes_cmac_ctx *);
 
 #endif

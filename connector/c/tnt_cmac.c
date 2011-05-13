@@ -1,4 +1,29 @@
 
+/*
+ * Copyright (C) 2011 Mail.RU
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitnted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 /*-
  * Copyright (c) 2008 Damien Bergamini <damien.bergamini@free.fr>
  *
@@ -42,14 +67,14 @@
 } while (0)
 
 void
-TNT_AES_CMAC_Init(TNT_AES_CMAC_CTX *ctx)
+tnt_aes_cmac_init(tnt_aes_cmac_ctx *ctx)
 {
 	memset(ctx->X, 0, sizeof ctx->X);
 	ctx->M_n = 0;
 }
 
 void
-TNT_AES_CMAC_SetKey(TNT_AES_CMAC_CTX *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_LENGTH])
+tnt_aes_cmac_setkey(tnt_aes_cmac_ctx *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_LENGTH])
 {
 	tnt_aes_set_key_enc_only(&ctx->aes, key, 128);
 }
@@ -59,7 +84,7 @@ TNT_AES_CMAC_SetKey(TNT_AES_CMAC_CTX *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_L
 #endif
 
 void
-TNT_AES_CMAC_Update(TNT_AES_CMAC_CTX *ctx, const u_int8_t *data, u_int len)
+tnt_aes_cmac_update(tnt_aes_cmac_ctx *ctx, const u_int8_t *data, u_int len)
 {
 	u_int mlen;
 
@@ -86,7 +111,7 @@ TNT_AES_CMAC_Update(TNT_AES_CMAC_CTX *ctx, const u_int8_t *data, u_int len)
 }
 
 void
-TNT_AES_CMAC_Final(u_int8_t digest[TNT_AES_CMAC_DIGEST_LENGTH], TNT_AES_CMAC_CTX *ctx)
+tnt_aes_cmac_final(u_int8_t digest[TNT_AES_CMAC_DIGEST_LENGTH], tnt_aes_cmac_ctx *ctx)
 {
 	u_int8_t K[16];
 

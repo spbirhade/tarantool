@@ -26,6 +26,8 @@
  * SUCH DAMAGE.
  */
 
+#define TNT_TMOUT_DEFAULT (16)
+
 typedef enum {
 
 	TNT_AUTH_NONE,
@@ -40,41 +42,48 @@ typedef enum {
 	TNT_PROTO_RO,
 	TNT_PROTO_FEEDER
 
-} tnt_auth_proto_t;
+} tnt_proto_t;
 
 typedef struct {
 
-	int                connected;
-	int                fd;
+	int             connected;
+	int             fd;
 
-	char             * sbuf;
-	int                sbuf_off;
-	int                sbuf_size;
+	char          * sbuf;
+	int             sbuf_off;
+	int             sbuf_size;
 
-	char             * rbuf;
-	int                rbuf_off;
-	int                rbuf_top;
-	int                rbuf_size;
+	char          * rbuf;
+	int             rbuf_off;
+	int             rbuf_top;
+	int             rbuf_size;
 
-	tnt_auth_t         auth_type;
-	tnt_auth_proto_t   auth_proto;
+	int             opt_tmout;
+	int             opt_tmout_rcv;
+	int             opt_tmout_snd;
 
-	char             * auth_id;
-	int                auth_id_size;
-	unsigned char    * auth_key;
-	int                auth_key_size;
+	tnt_proto_t     proto;
+	tnt_auth_t      auth_type;
+
+	char          * auth_id;
+	int             auth_id_size;
+	unsigned char * auth_key;
+	int             auth_key_size;
 
 } tnt_t;
 
 tnt_t*
-tnt_init(int rbuf_size, int sbuf_size);
+tnt_init(tnt_proto_t proto, int rbuf_size, int sbuf_size);
 
 void
-tnt_init_alloc(tnt_t * t,
+tnt_set_alloc(tnt_t * t,
 	tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
 
+void
+tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv);
+
 tnt_result_t
-tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
+tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	char * id,
 	unsigned char * key, int key_size);
 

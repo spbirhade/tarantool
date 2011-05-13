@@ -33,6 +33,12 @@ void
 tnt_io_free(tnt_t * t);
 
 tnt_result_t
+tnt_io_connect(tnt_t * t, char * host, int port);
+
+void
+tnt_io_close(tnt_t * t);
+
+tnt_result_t
 tnt_io_flush(tnt_t * t);
 
 tnt_result_t

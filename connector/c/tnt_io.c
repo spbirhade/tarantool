@@ -28,10 +28,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 
 #include <tnt_result.h>
@@ -42,6 +47,8 @@
 tnt_result_t
 tnt_io_init(tnt_t * t)
 {
+	t->fd = -1;
+
 	if (t->rbuf_size) {
 
 		t->rbuf = tnt_mem_alloc(t->rbuf_size);
@@ -72,11 +79,203 @@ tnt_io_init(tnt_t * t)
 void
 tnt_io_free(tnt_t * t)
 {
+	tnt_io_close(t);
+
 	if (t->rbuf)
 		tnt_mem_free(t->rbuf);
 
 	if (t->sbuf)
 		tnt_mem_free(t->sbuf);
+}
+
+static tnt_result_t
+tnt_io_resolve(struct sockaddr_in * addr,
+	const char * hostname, unsigned short port)
+{
+	memset(addr, 0, sizeof(struct sockaddr_in));
+
+	addr->sin_family = AF_INET;
+	addr->sin_port = htons(port);
+
+	struct hostent * host = gethostbyname(hostname);
+
+	if (host)
+		memcpy(&addr->sin_addr,
+			(void*)(host->h_addr), host->h_length);
+	else
+		return TNT_ERESOLVE;
+
+	return TNT_EOK;
+}
+
+static tnt_result_t
+tnt_io_nonblock(tnt_t * t, int set)
+{
+	int flags = fcntl(t->fd, F_GETFL);
+
+	if (flags == -1)
+		return TNT_ENONBLOCK;
+
+	if (set)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+
+	if (fcntl(t->fd, F_SETFL, flags) == -1)
+		return TNT_ENONBLOCK;
+
+	return TNT_EOK;
+}
+
+static tnt_result_t
+tnt_io_connect_do(tnt_t * t, char * host, int port)
+{
+	struct sockaddr_in addr;
+	
+	tnt_result_t result = tnt_io_resolve(&addr, host, port);
+
+	if (result != TNT_EOK)
+		return result;
+
+	result = tnt_io_nonblock(t, 1);
+
+	if (result != TNT_EOK)
+		return result;
+
+	if (connect(t->fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+
+		if (errno == EINPROGRESS) {
+
+			fd_set fds;
+			FD_ZERO(&fds);
+			FD_SET(t->fd, &fds);
+
+			struct timeval tmout;
+			tmout.tv_sec  = t->opt_tmout;
+			tmout.tv_usec = 0;
+
+			if (select(t->fd + 1, NULL, &fds, NULL, &tmout) == -1)
+				return TNT_ECONNECT;
+
+			if (!FD_ISSET(t->fd, &fds))
+				return TNT_ETMOUT;
+
+			int opt = 0;
+			socklen_t len = sizeof(opt);
+
+			if ((getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &opt, &len) == -1) || opt)
+				return TNT_ECONNECT;
+
+		} else
+			return TNT_ECONNECT;
+	}
+
+	result = tnt_io_nonblock(t, 0);
+
+	if (result != TNT_EOK)
+		return result;
+
+	return TNT_EOK;
+}
+
+static tnt_result_t
+tnt_io_setopts(tnt_t * t)
+{
+	int opt = 1;
+
+	if (setsockopt(t->fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+
+		tnt_io_close(t);
+		return TNT_ESOCKOPT;
+	}
+
+	if (t->sbuf_size)
+		opt = t->sbuf_size * 2;
+	else
+		opt = 3493888;
+
+	if (setsockopt(t->fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt)) == -1) {
+
+		tnt_io_close(t);
+		return TNT_ESOCKOPT;
+	}
+
+	if (t->rbuf_size)
+		opt = t->rbuf_size * 2;
+	else
+		opt = 3493888;
+
+	if (setsockopt(t->fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1) {
+
+		tnt_io_close(t);
+		return TNT_ESOCKOPT;
+	}
+
+	if (t->opt_tmout_snd) {
+
+		struct timeval tmout;
+
+		tmout.tv_sec  = t->opt_tmout_snd;
+		tmout.tv_usec = 0;
+
+		if (setsockopt(t->fd, SOL_SOCKET, SO_SNDTIMEO, &tmout, sizeof(tmout)) == -1) {
+
+			tnt_io_close(t);
+			return TNT_ESOCKOPT;
+		}
+	}
+
+	if (t->opt_tmout_rcv) {
+
+		struct timeval tmout;
+
+		tmout.tv_sec  = t->opt_tmout_rcv;
+		tmout.tv_usec = 0;
+
+		if (setsockopt(t->fd, SOL_SOCKET, SO_RCVTIMEO, &tmout, sizeof(tmout)) == -1) {
+
+			tnt_io_close(t);
+			return TNT_ESOCKOPT;
+		}
+	}
+
+	return TNT_EOK;
+}
+
+tnt_result_t
+tnt_io_connect(tnt_t * t, char * host, int port)
+{
+	t->fd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (t->fd < 0)
+		return TNT_ESOCKET;
+
+	tnt_result_t result = tnt_io_setopts(t);
+
+	if (result != TNT_EOK)
+		return result;
+
+	result = tnt_io_connect_do(t, host, port);
+
+	if (result != TNT_EOK) {
+
+		tnt_io_close(t);
+		return result;
+	}
+
+	return TNT_EOK;
+}
+
+void
+tnt_io_close(tnt_t * t)
+{
+	if (t->fd >= 0) {
+
+		close(t->fd);
+		t->fd = -1;
+	}
+
+	t->connected = 0;
 }
 
 tnt_result_t

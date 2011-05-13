@@ -49,13 +49,13 @@ static void
 tnt_auth_hash(tnt_t * t, tnt_auth_chap_hdr_server1_t * hs1,
 	tnt_auth_chap_hdr_client_t * hc)
 {
-	TNT_AES_CMAC_CTX cmac;
-	TNT_AES_CMAC_Init(&cmac);
+	tnt_aes_cmac_ctx cmac;
+	tnt_aes_cmac_init(&cmac);
 
-	TNT_AES_CMAC_SetKey(&cmac, t->auth_key);
-	TNT_AES_CMAC_Update(&cmac, (u_int8_t*)hs1->token, sizeof(hs1->token));
+	tnt_aes_cmac_setkey(&cmac, t->auth_key);
+	tnt_aes_cmac_update(&cmac, (u_int8_t*)hs1->token, sizeof(hs1->token));
 
-	TNT_AES_CMAC_Final((u_int8_t*)hc->hash, &cmac);
+	tnt_aes_cmac_final((u_int8_t*)hc->hash, &cmac);
 }
 
 static tnt_result_t
@@ -78,7 +78,7 @@ tnt_auth_chap(tnt_t * t)
 
 	memcpy(hc.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE);
 
-	switch (t->auth_proto) {
+	switch (t->proto) {
 
 		case TNT_PROTO_ADMIN:
 			hc.proto = TNT_AUTH_CHAP_PROTO_ADMIN;

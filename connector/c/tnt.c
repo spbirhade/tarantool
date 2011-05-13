@@ -32,7 +32,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <netdb.h>
 #include <unistd.h>
 
 #include <tnt_result.h>
@@ -45,7 +44,7 @@
 #include <tnt_auth.h>
 
 tnt_t*
-tnt_init(int rbuf_size, int sbuf_size)
+tnt_init(tnt_proto_t proto, int rbuf_size, int sbuf_size)
 {
 	tnt_t * t = malloc(sizeof(tnt_t));
 
@@ -54,10 +53,15 @@ tnt_init(int rbuf_size, int sbuf_size)
 
 	memset(t, 0, sizeof(tnt_t));
 
+	t->proto = proto;
 	t->auth_type = TNT_AUTH_NONE;
 
 	t->rbuf_size = rbuf_size;
 	t->sbuf_size = sbuf_size;
+
+	t->opt_tmout = TNT_TMOUT_DEFAULT;
+	t->opt_tmout_rcv = 0;
+	t->opt_tmout_snd = 0;
 
 	if (tnt_io_init(t) != TNT_EOK) {
 
@@ -69,20 +73,27 @@ tnt_init(int rbuf_size, int sbuf_size)
 }
 
 void
-tnt_init_alloc(tnt_t * t,
+tnt_set_alloc(tnt_t * t,
 	tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f)
 {
 	(void)t;
 	tnt_mem_init(m, r, d, f);
 }
 
+void
+tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv)
+{
+	t->opt_tmout = tmout_connect;
+	t->opt_tmout_snd = tmout_snd;
+	t->opt_tmout_rcv = tmout_rcv;
+}
+
 tnt_result_t
-tnt_init_auth(tnt_t * t, tnt_auth_t auth, tnt_auth_proto_t proto,
+tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	char * id,
 	unsigned char * key, int key_size)
 {
 	t->auth_type = auth;
-	t->auth_proto = proto;
 
 	t->auth_id_size = strlen(id);
 
@@ -124,9 +135,6 @@ tnt_free(tnt_t * t)
 {
 	tnt_io_free(t);
 
-	if (t->connected)
-		tnt_close(t);
-
 	if (t->auth_id)
 		free(t->auth_id);
 
@@ -156,7 +164,10 @@ tnt_error_t tnt_error_list[] =
 	{ TNT_ESIZE,     "bad buffer size"          },
 	{ TNT_ESOCKET,   "socket(2) failed"         },
 	{ TNT_ESOCKOPT,  "setsockopt(2) failed"     },
+	{ TNT_ERESOLVE,  "gethostbyname(2) failed"  },
+	{ TNT_ENONBLOCK, "nonblocking set failed"   },
 	{ TNT_ECONNECT,  "connect(2) failed"        },
+	{ TNT_ETMOUT,    "operation timeout"        },
 	{ TNT_EREAD,     "recv(2) failed"           },
 	{ TNT_EWRITE,    "write(2) failed"          },
 	{ TNT_EPROTO,    "protocol sanity error"    },
@@ -177,63 +188,22 @@ tnt_error(tnt_result_t res)
 	return tnt_error_list[(int)res].desc;
 }
 
-static struct sockaddr_in
-tnt_connect_resolve(const char *hostname, unsigned short port)
-{
-	struct sockaddr_in result;
-
-	memset((void*)(&result), 0, sizeof(result));
-
-	result.sin_family = AF_INET;
-	result.sin_port   = htons(port);
-
-	struct hostent * host = gethostbyname(hostname);
-
-	if (host)
-		memcpy((void*)(&result.sin_addr),
-			(void*)(host->h_addr), host->h_length);
-
-	return result;
-}
-
 tnt_result_t
 tnt_connect(tnt_t * t, char * hostname, int port)
 {
-	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	tnt_result_t result = tnt_io_connect(t, hostname, port);
 
-	if (fd < 0)
-		return TNT_ESOCKET;
-
-	int opt = 1;
-
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1)
-		return TNT_ESOCKOPT;
-
-	opt = 3493888;
-
-	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt)) == -1)
-		return TNT_ESOCKOPT;
-
-	opt = 3493888;
-
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1)
-		return TNT_ESOCKOPT;
-
-	struct sockaddr_in addr = tnt_connect_resolve(hostname, port);
-
-	if (connect(fd, (struct sockaddr*)&addr, sizeof addr))
-		return TNT_ECONNECT;
-
-	t->fd = fd;
+	if (result != TNT_EOK)
+		return result;
 
 	if (t->auth_type != TNT_AUTH_NONE) {
 
 		int result = tnt_auth(t);
 
 		if (result != TNT_EOK) {
-
-		  close(fd);
-		  return result;
+		
+			tnt_io_close(t);
+			return result;
 		}
 	}
 
@@ -250,6 +220,5 @@ tnt_flush(tnt_t * t)
 void
 tnt_close(tnt_t * t)
 {
-	if (t->connected)
-		close(t->fd);
+	tnt_io_close(t);
 }

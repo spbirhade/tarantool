@@ -10,7 +10,7 @@ main(int argc, char * argv[])
 	(void)argc;
 	(void)argv;
 
-	tnt_t * t = tnt_init(8096, 8096);
+	tnt_t * t = tnt_init(TNT_PROTO_RW, 8096, 8096);
 
 	if (t == NULL) {
 
@@ -18,7 +18,7 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	tnt_result_t result = tnt_init_auth(t, TNT_AUTH_CHAP, TNT_PROTO_RW,
+	tnt_result_t result = tnt_set_auth(t, TNT_AUTH_CHAP,
 			"test",
 			(unsigned char*)"1234567812345678", 16);
 
