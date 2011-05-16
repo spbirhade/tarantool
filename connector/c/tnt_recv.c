@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
@@ -65,7 +65,7 @@ tnt_recv_error(tnt_recv_t * rcv)
 	return NULL;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_recv_fqtuple(tnt_recv_t * rcv, char * data, unsigned long size,
 	unsigned long count)
 {
@@ -77,7 +77,6 @@ tnt_recv_fqtuple(tnt_recv_t * rcv, char * data, unsigned long size,
 		unsigned long s = *(unsigned long*)p;
 
 		if (s > (unsigned long)(size - off)) {
-
 			tnt_tuples_free(&rcv->tuples);
 			return TNT_EPROTO;
 		}
@@ -85,10 +84,9 @@ tnt_recv_fqtuple(tnt_recv_t * rcv, char * data, unsigned long size,
 		off += 4, p += 4;
 		s   += 4;
 
-		tnt_result_t r = tnt_tuples_unpack(&rcv->tuples, p, s);
+		tnt_error_t r = tnt_tuples_unpack(&rcv->tuples, p, s);
 
 		if (r != TNT_EOK) {
-
 			tnt_tuples_free(&rcv->tuples);
 			return r;
 		}
@@ -99,15 +97,15 @@ tnt_recv_fqtuple(tnt_recv_t * rcv, char * data, unsigned long size,
 	return TNT_EOK;
 }
 
-tnt_result_t
+int
 tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 {
 	char buffer[sizeof(tnt_proto_header_resp_t) + 4];
 
-	tnt_result_t r = tnt_io_recv(t, buffer, sizeof(tnt_proto_header_t));
+	t->error = tnt_io_recv(t, buffer, sizeof(tnt_proto_header_t));
 
-	if (r != TNT_EOK)
-		return r;
+	if (t->error != TNT_EOK)
+		return -1;
 
 	tnt_proto_header_resp_t * hdr =
 		(tnt_proto_header_resp_t*)buffer;
@@ -140,19 +138,22 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	/* error/reply */
 	if (hdr->hdr.len == 4) {
 
-		r = tnt_io_recv_continue(t, buffer, sizeof(tnt_proto_header_resp_t),
+		t->error = tnt_io_recv_continue(t, buffer, sizeof(tnt_proto_header_resp_t),
 				sizeof(tnt_proto_header_t));
 
-		if (r != TNT_EOK)
-			return r;
+		if (t->error != TNT_EOK)
+			return -1;
 
 		rcv->code = hdr->code;
 
-		if (TNT_PROTO_IS_ERROR(hdr->code))
-			return TNT_EERROR;
-		else
-		if (TNT_PROTO_IS_AGAIN(hdr->code))
-			return TNT_EAGAIN;
+		if (TNT_PROTO_IS_ERROR(hdr->code)) {
+			t->error = TNT_EERROR;
+			return 0;
+		} else
+		if (TNT_PROTO_IS_AGAIN(hdr->code)) {
+			t->error = TNT_EAGAIN;
+			return 0;
+		}
 	}
 
 	/* - - - - */
@@ -163,11 +164,12 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	if ((rcv->op != TNT_RECV_SELECT) && (hdr->hdr.len == 8)) {
 
 		/* count only - insert, update, delete */
-		r = tnt_io_recv_continue(t, buffer, sizeof(tnt_proto_header_resp_t) + 4,
+		t->error = tnt_io_recv_continue(t, buffer,
+				sizeof(tnt_proto_header_resp_t) + 4,
 				sizeof(tnt_proto_header_t));
 
-		if (r != TNT_EOK)
-			return r;
+		if (t->error != TNT_EOK)
+			return -1;
 
 		rcv->count = *(unsigned long*)(buffer + sizeof(tnt_proto_header_resp_t));
 
@@ -175,16 +177,17 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 
 		data = tnt_mem_alloc(size);
 
-		if (data == NULL) 
-			return TNT_EMEMORY;
+		if (data == NULL) {
+			t->error = TNT_EMEMORY;
+			return -1;
+		}
 
 		p = data;
-		r = tnt_io_recv(t, p, size);
+		t->error = tnt_io_recv(t, p, size);
 
-		if (r != TNT_EOK) {
-
+		if (t->error != TNT_EOK) {
 			tnt_mem_free(data);
-			return r;
+			return -1;
 		}
 
 		hdr->code = *(unsigned long*)(p); 
@@ -198,8 +201,6 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		size -= 4;
 	}
 
-	r = TNT_EOK;
-
 	switch (rcv->op) {
 
 		/* <insert_response_body> ::= <count> | <count><fq_tuple> 
@@ -209,10 +210,10 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		case TNT_RECV_INSERT:
 		case TNT_RECV_UPDATE:
 
-			if (hdr->hdr.len == 8) /* only count */
+			if (hdr->hdr.len == 8) /* count only */
 				break;
 
-			r = tnt_recv_fqtuple(rcv, p, size, 1);
+			t->error = tnt_recv_fqtuple(rcv, p, size, 1);
 			break;
 
 		/* <delete_response_body> ::= <count> */
@@ -225,16 +226,16 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		case TNT_RECV_SELECT:
 
 			/* fq_tuple* */
-			r = tnt_recv_fqtuple(rcv, p, size, rcv->count);
+			t->error = tnt_recv_fqtuple(rcv, p, size, rcv->count);
 			break;
 
 		default:
-			r = TNT_EPROTO;
+			t->error = TNT_EPROTO;
 			break;
 	}
 
 	if (data)
 		tnt_mem_free(data);
 
-	return r;
+	return (t->error == TNT_EOK) ? 0 : -1;
 }

@@ -18,21 +18,17 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	tnt_result_t result = tnt_set_auth(t, TNT_AUTH_CHAP,
+	if (tnt_set_auth(t, TNT_AUTH_CHAP,
 			"test",
-			(unsigned char*)"1234567812345678", 16);
+			(unsigned char*)"1234567812345678", 16) == -1) {
 
-	if ( result != TNT_EOK ) {
-
-		printf("tnt_init_auth() failed: %s\n", tnt_error(result));
+		printf("tnt_init_auth() failed: %s\n", tnt_perror(t));
 		return 1;
 	}
 
-	result = tnt_connect(t, "localhost", 15312);
+	if (tnt_connect(t, "localhost", 15312) == -1) {
 
-	if ( result != TNT_EOK ) {
-
-		printf("tnt_connect() failed: %s\n", tnt_error(result));
+		printf("tnt_connect() failed: %s\n", tnt_perror(t));
 		return 1;
 	}
 

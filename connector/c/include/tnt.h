@@ -70,6 +70,9 @@ typedef struct {
 	unsigned char * auth_key;
 	int             auth_key_size;
 
+	tnt_error_t     error;
+	int             error_errno;
+
 } tnt_t;
 
 tnt_t*
@@ -82,7 +85,7 @@ tnt_set_alloc(tnt_t * t,
 void
 tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv);
 
-tnt_result_t
+int
 tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	char * id,
 	unsigned char * key, int key_size);
@@ -90,16 +93,22 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 void
 tnt_free(tnt_t * t);
 
-char*
-tnt_error(tnt_result_t res);
-
-tnt_result_t
+int
 tnt_connect(tnt_t * t, char * hostname, int port);
 
-tnt_result_t
+int
 tnt_flush(tnt_t * t);
 
 void
 tnt_close(tnt_t * t);
+
+tnt_error_t
+tnt_error(tnt_t * t);
+
+int
+tnt_error_errno(tnt_t * t);
+
+char*
+tnt_perror(tnt_t * t);
 
 #endif

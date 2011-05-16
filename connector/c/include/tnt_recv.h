@@ -38,16 +38,19 @@ typedef enum {
 
 typedef struct {
 
-	tnt_recv_op_t  op;
+	tnt_recv_op_t op;
 	unsigned long reqid;
 	unsigned long code;
 	unsigned long count;
-	tnt_tuples_t   tuples;
+	tnt_tuples_t  tuples;
 
 } tnt_recv_t;
 
 #define TNT_RECV_COUNT(R) \
 	((R)->count)
+
+#define TNT_RECV_CODE(R) \
+	((R)->code)
 
 #define TNT_RECV_ID(R) \
 	((R)->reqid)
@@ -67,7 +70,7 @@ tnt_recv_free(tnt_recv_t * rcv);
 char*
 tnt_recv_error(tnt_recv_t * rcv);
 
-tnt_result_t
+int
 tnt_recv(tnt_t * t, tnt_recv_t * rcv);
 
 #endif

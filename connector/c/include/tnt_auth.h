@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+tnt_error_t
 tnt_auth(tnt_t * t);
 
 #endif

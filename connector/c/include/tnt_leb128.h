@@ -29,7 +29,7 @@
 int
 tnt_leb128_read(char * buf, int size, unsigned long * value);
 
-tnt_result_t
+void
 tnt_leb128_write(char * buf, unsigned long value);
 
 int

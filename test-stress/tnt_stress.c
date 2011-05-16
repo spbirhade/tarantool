@@ -150,7 +150,7 @@ stress_run(tnt_t * t, stress_t * list, int count)
 	}
 }
 
-int 
+int
 main(int argc, char * argv[])
 {
 	tnt_auth_t auth = TNT_AUTH_CHAP;
@@ -171,7 +171,7 @@ main(int argc, char * argv[])
 
 	while ((opt = getopt(argc, argv, "t:i:k:a:p:c:r:s:hb")) != -1 ) {
 		switch (opt) {
-			case 't':
+		case 't':
 
 				if (!strcmp(optarg, "chap"))
 					auth = TNT_AUTH_CHAP;
@@ -216,15 +216,16 @@ main(int argc, char * argv[])
 			default:
 				printf("tarantool stress-suite.\n\n");
 
-				printf("usage: [-t auth  = chap]\n"
-				       "       [-i id    = test]\n"
-				       "       [-k key   = 1234567812345678]\n"
-			 	       "       [-a host  = localhost]\n"
-				       "       [-p port  = 15312]\n"
-				       "       [-c count = 1000]\n"
-				       "       [-r rbuf  = 16384]\n"
-				       "       [-s sbuf  = 16384]\n"
-				       "       [-b       = 0]\n");
+				printf("stress: [-t auth  = chap]\n"
+				       "        [-i id    = test]\n"
+				       "        [-k key   = 1234567812345678]\n"
+			 	       "        [-a host  = localhost]\n"
+				       "        [-p port  = 15312]\n"
+				       "        [-c count = 1000]\n"
+				       "        [-r rbuf  = 16384]\n"
+				       "        [-s sbuf  = 16384]\n"
+				       "        [-b       = 0]\n");
+
 				return 1;
 		}
 	}
@@ -246,23 +247,29 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	tnt_result_t result = tnt_set_auth(t, auth,
+	tnt_set_tmout(t, 8, 1, 1);
+
+	if (tnt_set_auth(t, auth,
 			id,
-			(unsigned char*)key, key_size);
+			(unsigned char*)key, key_size) == -1) {
 
-	if (result != TNT_EOK) {
+		printf("tnt_set_auth() failed: %s ", tnt_perror(t));
 
-		printf("tnt_init_auth() failed: %s\n", tnt_error(result));
+		if (tnt_error(t) == TNT_ESYSTEM)
+			printf("(%s)", strerror(tnt_error_errno(t)));
+
+		printf("\n");
 		return 1;
 	}
 
-	tnt_set_tmout(t, 8, 2, 2);
+	if (tnt_connect(t, host, port) == -1) {
 
-	result = tnt_connect(t, host, port);
+		printf("tnt_connect() failed: %s ", tnt_perror(t));
 
-	if (result != TNT_EOK) {
+		if (tnt_error(t) == TNT_ESYSTEM)
+			printf("(%s)", strerror(tnt_error_errno(t)));
 
-		printf("tnt_connect() failed: %s\n", tnt_error(result));
+		printf("\n");
 		return 1;
 	}
 

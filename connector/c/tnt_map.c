@@ -32,12 +32,12 @@
 #include <string.h>
 #include <math.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt_md5.h>
 #include <tnt_map.h>
 
-tnt_result_t
+int
 tnt_map_init(tnt_map_t * map, int per)
 {
 	map->points = 0;
@@ -53,12 +53,12 @@ tnt_map_init(tnt_map_t * map, int per)
 			map->servers_max);
 
 	if (map->servers == NULL)
-		return TNT_EMEMORY;
+		return -1;
 
 	memset(map->servers, 0,
 		sizeof(tnt_map_server_t) * map->servers_max);
 
-	return TNT_EOK;
+	return 0;
 }
 
 void
@@ -70,7 +70,6 @@ tnt_map_free(tnt_map_t * map)
 	int i;
 
 	for (i = 0 ; i < map->servers_max ; i++) {
-
 		if (map->servers[i].host)
 			tnt_mem_free(map->servers[i].host);
 	}
@@ -98,7 +97,7 @@ tnt_map_add(tnt_map_t * map, char * host, int port, int mem)
 	map->servers[map->servers_count].host = tnt_mem_dup(host);
 
 	if (map->servers[map->servers_count].host == NULL)
-		return TNT_EMEMORY;
+		return -1;
 
 	int idx = map->servers_count++;
 
@@ -160,7 +159,7 @@ tnt_map_cmpf(tnt_map_ptr_t * a, tnt_map_ptr_t * b)
 	return 0;
 }
 
-tnt_result_t
+int
 tnt_map_rehash(tnt_map_t * map)
 {
 	tnt_map_ptr_t * ptr =
@@ -169,7 +168,7 @@ tnt_map_rehash(tnt_map_t * map)
 			(map->servers_per * 4));
 
 	if (ptr == NULL)
-		return TNT_EMEMORY;
+		return -1;
 
 	map->map = ptr;
 
@@ -217,7 +216,7 @@ tnt_map_rehash(tnt_map_t * map)
 		(int(*)(const void *, const void *))
 			tnt_map_cmpf);
 
-	return TNT_EOK;
+	return 0;
 }
 
 static long

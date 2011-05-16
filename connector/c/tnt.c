@@ -34,7 +34,7 @@
 #include <netinet/tcp.h>
 #include <unistd.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_aes.h>
 #include <tnt_cmac.h>
 #include <tnt_mem.h>
@@ -63,8 +63,9 @@ tnt_init(tnt_proto_t proto, int rbuf_size, int sbuf_size)
 	t->opt_tmout_rcv = 0;
 	t->opt_tmout_snd = 0;
 
-	if (tnt_io_init(t) != TNT_EOK) {
+	t->error = tnt_io_init(t);
 
+	if (t->error != TNT_EOK) {
 		free(t);
 		return NULL;
 	}
@@ -88,33 +89,38 @@ tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv)
 	t->opt_tmout_rcv = tmout_rcv;
 }
 
-tnt_result_t
+int
 tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	char * id,
 	unsigned char * key, int key_size)
 {
 	t->auth_type = auth;
-
 	t->auth_id_size = strlen(id);
 
 	switch (t->auth_type) {
 
 		case TNT_AUTH_NONE:
-			return TNT_EOK;
+			return 0;
 
 		case TNT_AUTH_CHAP:
-			if (key_size != TNT_AES_CMAC_KEY_LENGTH)
-				return TNT_EBADVAL;
+			if (key_size != TNT_AES_CMAC_KEY_LENGTH) {
+				t->error = TNT_EBADVAL;
+				return -1;
+			}
 
-			if ((t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE)
-				return TNT_EBADVAL;
+			if ((t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE) {
+				t->error = TNT_EBADVAL;
+				return -1;
+			}
 			break;
 	}
 
 	t->auth_id = strdup(id);
 
-	if (t->auth_id == NULL)
-		return TNT_EMEMORY;
+	if (t->auth_id == NULL) {
+		t->error = TNT_EMEMORY;
+		return -1;
+	}
 
 	t->auth_key_size = key_size;
 	t->auth_key = malloc(t->auth_key_size);
@@ -123,11 +129,13 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 
 		free(t->auth_id);
 		t->auth_id = NULL;
-		return TNT_EMEMORY;
+
+		t->error = TNT_EMEMORY;
+		return -1;
 	}
 
 	memcpy(t->auth_key, key, key_size);
-	return TNT_EOK;
+	return 0;
 }
 
 void
@@ -144,81 +152,93 @@ tnt_free(tnt_t * t)
 	free(t);
 }
 
-typedef struct {
-
-	tnt_result_t type;
-	char * desc;
-
-} tnt_error_t;
-
-/* must be in sync with enum tnt_result_t */
-
-static
-tnt_error_t tnt_error_list[] = 
-{
-	{ TNT_EFAIL,     "fail"                     },
-	{ TNT_EOK,       "ok"                       },
-	{ TNT_EBADVAL,   "bad function argument"    },
-	{ TNT_EMEMORY,   "memory allocation failed" },
-	{ TNT_EBIG,      "buffer is too big"        },
-	{ TNT_ESIZE,     "bad buffer size"          },
-	{ TNT_ESOCKET,   "socket(2) failed"         },
-	{ TNT_ESOCKOPT,  "setsockopt(2) failed"     },
-	{ TNT_ERESOLVE,  "gethostbyname(2) failed"  },
-	{ TNT_ENONBLOCK, "nonblocking set failed"   },
-	{ TNT_ECONNECT,  "connect(2) failed"        },
-	{ TNT_ETMOUT,    "operation timeout"        },
-	{ TNT_EREAD,     "recv(2) failed"           },
-	{ TNT_EWRITE,    "write(2) failed"          },
-	{ TNT_EPROTO,    "protocol sanity error"    },
-	{ TNT_EAUTH,     "authorization failed"     },
-	{ TNT_ENOOP,     "no update ops specified"  },
-	{ TNT_ENOTU,     "no tuples specified"      },
-	{ TNT_EERROR,    "error"                    },
-	{ TNT_EAGAIN,    "resend needed"            },
-	{ TNT_LAST,       NULL                      }
-};
-
-char*
-tnt_error(tnt_result_t res)
-{
-	if ( (int)res > TNT_LAST )
-		return NULL;
-
-	return tnt_error_list[(int)res].desc;
-}
-
-tnt_result_t
+int
 tnt_connect(tnt_t * t, char * hostname, int port)
 {
-	tnt_result_t result = tnt_io_connect(t, hostname, port);
+	t->error = tnt_io_connect(t, hostname, port);
 
-	if (result != TNT_EOK)
-		return result;
+	if (t->error != TNT_EOK)
+		return -1;
 
 	if (t->auth_type != TNT_AUTH_NONE) {
+		t->error = tnt_auth(t);
 
-		int result = tnt_auth(t);
-
-		if (result != TNT_EOK) {
-		
+		if (t->error != TNT_EOK) {
 			tnt_io_close(t);
-			return result;
+			return -1;
 		}
 	}
 
 	t->connected = 1;
-	return TNT_EOK;
+	return 0;
 }
 
-tnt_result_t
+int
 tnt_flush(tnt_t * t)
 {
-	return tnt_io_flush(t);
+	t->error = tnt_io_flush(t);
+
+	return (t->error == TNT_EOK) ? 0 : -1;
 }
 
 void
 tnt_close(tnt_t * t)
 {
 	tnt_io_close(t);
+}
+
+tnt_error_t
+tnt_error(tnt_t * t)
+{
+	return t->error;
+}
+
+int
+tnt_error_errno(tnt_t * t)
+{
+	return t->error_errno;
+}
+
+typedef struct {
+
+	tnt_error_t type;
+	char * desc;
+
+} tnt_error_desc_t;
+
+/* must be in sync with enum tnt_error_t */
+
+static
+tnt_error_desc_t tnt_error_list[] = 
+{
+	{ TNT_EFAIL,    "fail"                     },
+	{ TNT_EOK,      "ok"                       },
+	{ TNT_EMEMORY,  "memory allocation failed" },
+	{ TNT_ESYSTEM,  "system error"             },
+
+	{ TNT_EBADVAL,  "bad function argument"    },
+	{ TNT_EBIG,     "buffer is too big"        },
+	{ TNT_ESIZE,    "bad buffer size"          },
+
+	{ TNT_ERESOLVE, "gethostbyname(2) failed"  },
+	{ TNT_ETMOUT,   "operation timeout"        },
+	{ TNT_EPROTO,   "protocol sanity error"    },
+	{ TNT_EAUTH,    "authorization failed"     },
+
+	{ TNT_ENOOP,    "no update ops specified"  },
+	{ TNT_ENOTU,    "no tuples specified"      },
+
+	{ TNT_EERROR,   "error"                    },
+	{ TNT_EAGAIN,   "resend needed"            },
+
+	{ TNT_LAST,      NULL                      }
+};
+
+char*
+tnt_perror(tnt_t * t)
+{
+	if ((int)t->error > TNT_LAST)
+		return NULL;
+
+	return tnt_error_list[(int)t->error].desc;
 }

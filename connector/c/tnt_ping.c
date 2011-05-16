@@ -33,7 +33,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
@@ -42,7 +42,7 @@
 #include <tnt_leb128.h>
 #include <tnt_ping.h>
 
-tnt_result_t
+int
 tnt_ping(tnt_t * t, int reqid)
 {
 	tnt_proto_header_t hdr;
@@ -56,5 +56,7 @@ tnt_ping(tnt_t * t, int reqid)
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
 
-	return tnt_io_sendv(t, v, 1);
+	t->error = tnt_io_sendv(t, v, 1);
+
+	return (t->error == TNT_EOK) ? 0 : -1;
 }

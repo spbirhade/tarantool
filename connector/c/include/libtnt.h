@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_proto.h>
@@ -37,7 +37,7 @@
 #include <tnt_select.h>
 #include <tnt_ping.h>
 #include <tnt_raw.h>
-#include <tnt_recv.h>
 #include <tnt_map.h>
+#include <tnt_recv.h>
 
 #endif

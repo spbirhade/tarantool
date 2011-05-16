@@ -71,13 +71,13 @@ typedef struct {
 
 } tnt_map_t;
 
-tnt_result_t
+int
 tnt_map_init(tnt_map_t * map, int per);
 
 void
 tnt_map_free(tnt_map_t * map);
 
-tnt_result_t
+int
 tnt_map_rehash(tnt_map_t * map);
 
 int

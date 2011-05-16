@@ -1,5 +1,5 @@
-#ifndef TNT_RESULT_H_
-#define TNT_RESULT_H_
+#ifndef TNT_ERROR_H_
+#define TNT_ERROR_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -28,28 +28,28 @@
 
 typedef enum {
 
-	TNT_EFAIL,
 	TNT_EOK,
-	TNT_EBADVAL,
+	TNT_EFAIL,
 	TNT_EMEMORY,
+	TNT_ESYSTEM,
+
+	TNT_EBADVAL,
 	TNT_EBIG,
 	TNT_ESIZE,
-	TNT_ESOCKET,
-	TNT_ESOCKOPT,
+
 	TNT_ERESOLVE,
-	TNT_ENONBLOCK,
-	TNT_ECONNECT,
 	TNT_ETMOUT,
-	TNT_EREAD,
-	TNT_EWRITE,
 	TNT_EPROTO,
 	TNT_EAUTH,
+
 	TNT_ENOOP,
 	TNT_ENOTU,
+
 	TNT_EERROR,
 	TNT_EAGAIN,
+
 	TNT_LAST
 
-} tnt_result_t;
+} tnt_error_t;
 
 #endif

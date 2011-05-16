@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+int
 tnt_ping(tnt_t * t, int reqid);
 
 #endif

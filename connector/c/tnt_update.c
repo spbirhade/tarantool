@@ -33,7 +33,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
@@ -56,7 +56,7 @@ tnt_update_free(tnt_update_t * update)
 {
 	tnt_update_op_t * op, * next;
 
-	for ( op = update->head ; op ; op = next ) {
+	for (op = update->head ; op ; op = next) {
 
 		next = op->next;
 
@@ -65,7 +65,7 @@ tnt_update_free(tnt_update_t * update)
 	}
 }
 
-tnt_result_t
+tnt_error_t
 tnt_update_add(tnt_update_t * update,
 	tnt_update_type_t type, int field, char * data, int size)
 {
@@ -116,7 +116,6 @@ tnt_update_add(tnt_update_t * update,
 	op->next  = NULL;
 
 	if (op->data == NULL ) {
-
 		tnt_mem_free(op);
 		return TNT_EMEMORY;
 	}
@@ -128,13 +127,13 @@ tnt_update_add(tnt_update_t * update,
 	return TNT_EOK;
 }
 
-tnt_result_t
+static tnt_error_t
 tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 {
 	tnt_update_op_t * op;
 	char * p;
 
-	if ( update->count == 0 )
+	if (update->count == 0)
 		return TNT_ENOOP;
 
 	/* <count><operation>+ */
@@ -177,26 +176,26 @@ tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 	return TNT_EOK;
 }
 
-tnt_result_t
+int
 tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 	tnt_tuple_t * key, tnt_update_t * update)
 {
 	char * td;
 	int ts;
-	tnt_result_t result = tnt_tuple_pack(key, &td, &ts);
 
-	if ( result != TNT_EOK )
-		return result;
+	t->error = tnt_tuple_pack(key, &td, &ts);
+
+	if (t->error != TNT_EOK)
+		return -1;
 
 	char * ud;
 	int us;
 
-	result = tnt_update_pack(update, &ud, &us);
+	t->error = tnt_update_pack(update, &ud, &us);
 
-	if ( result != TNT_EOK ) {
-
+	if (t->error != TNT_EOK) {
 		tnt_mem_free(td);
-		return result;
+		return -1;
 	}
 
 	tnt_proto_header_t hdr;
@@ -221,29 +220,27 @@ tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 	v[3].iov_base = ud;
 	v[3].iov_len  = us;
 
-	result = tnt_io_sendv(t, v, 4);
+	t->error = tnt_io_sendv(t, v, 4);
 
 	tnt_mem_free(td);
 	tnt_mem_free(ud);
-	return result;
+	return (t->error == TNT_EOK) ? 0 : -1;
 }
 
-tnt_result_t
+int
 tnt_update(tnt_t * t, int reqid, int ns, int flags,
 	char * key, int key_size, tnt_update_t * update)
 {
-	tnt_result_t result;
 	tnt_tuple_t k;
-
 	tnt_tuple_init(&k);
 
-	result = tnt_tuple_add(&k, key, key_size);
+	t->error = tnt_tuple_add(&k, key, key_size);
 
-	if (result != TNT_EOK)
-		return result;
+	if (t->error != TNT_EOK)
+		return -1;
 
-	result = tnt_update_tuple(t, reqid, ns, flags, &k, update);
+	int result = tnt_update_tuple(t, reqid, ns, flags, &k, update);
+
 	tnt_tuple_free(&k);
-
 	return result;
 }

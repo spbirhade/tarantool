@@ -33,7 +33,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
@@ -42,18 +42,17 @@
 #include <tnt_leb128.h>
 #include <tnt_select.h>
 
-tnt_result_t
+int
 tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 	int limit, tnt_tuples_t * tuples)
 {
-	tnt_result_t result;
 	char * data_enc;
 	int data_enc_size;
 
-	result = tnt_tuples_pack(tuples, &data_enc, &data_enc_size);
+	t->error = tnt_tuples_pack(tuples, &data_enc, &data_enc_size);
 
-	if (result != TNT_EOK)
-		return result;
+	if (t->error != TNT_EOK)
+		return -1;
 
 	tnt_proto_header_t hdr;
 
@@ -79,8 +78,8 @@ tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 	v[2].iov_base = data_enc;
 	v[2].iov_len  = data_enc_size;
 
-	result = tnt_io_sendv(t, v, 3);
+	t->error = tnt_io_sendv(t, v, 3);
 
 	tnt_mem_free(data_enc);
-	return result;
+	return (t->error == TNT_EOK) ? 0 : -1;
 }

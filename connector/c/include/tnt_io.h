@@ -26,31 +26,31 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+tnt_error_t
 tnt_io_init(tnt_t * t);
 
 void
 tnt_io_free(tnt_t * t);
 
-tnt_result_t
+tnt_error_t
 tnt_io_connect(tnt_t * t, char * host, int port);
 
 void
 tnt_io_close(tnt_t * t);
 
-tnt_result_t
+tnt_error_t
 tnt_io_flush(tnt_t * t);
 
-tnt_result_t
+tnt_error_t
 tnt_io_send(tnt_t * t, char * buf, int size);
 
-tnt_result_t
+tnt_error_t
 tnt_io_sendv(tnt_t * t, void * iovec, int count);
 
-tnt_result_t
+tnt_error_t
 tnt_io_recv(tnt_t * t, char * buf, int size);
 
-tnt_result_t
+tnt_error_t
 tnt_io_recv_continue(tnt_t * t, char * buf, int size, int off);
 
 #endif

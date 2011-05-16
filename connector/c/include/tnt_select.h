@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+int
 tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 	int limit, tnt_tuples_t * tuples);
 

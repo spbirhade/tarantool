@@ -26,10 +26,10 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+int
 tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key);
 
-tnt_result_t
+int
 tnt_delete(tnt_t * t, int reqid, int ns, char * key, int key_size);
 
 #endif

@@ -33,8 +33,9 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <errno.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_raw.h>
@@ -42,7 +43,12 @@
 int
 tnt_raw_send(tnt_t * t, char * buf, int size)
 {
-	return send(t->fd, buf, size, 0);
+	int result = send(t->fd, buf, size, 0);
+
+	if (result == -1)
+		t->error_errno = errno;
+
+	return result;
 }
 
 int
@@ -66,6 +72,9 @@ tnt_raw_sendv(tnt_t * t, int count, ...)
 
 	int r = writev(t->fd, v, count);
 
+	if (r == -1)
+		t->error_errno = errno;
+
 	tnt_mem_free(v);
 	return r;
 }
@@ -73,5 +82,10 @@ tnt_raw_sendv(tnt_t * t, int count, ...)
 int
 tnt_raw_recv(tnt_t * t, char * buf, int size)
 {
-	return recv(t->fd, buf, size, 0);
+	int result = recv(t->fd, buf, size, 0);
+
+	if (result == -1)
+		t->error_errno = errno;
+
+	return result;
 }

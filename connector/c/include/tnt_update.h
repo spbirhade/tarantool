@@ -67,18 +67,15 @@ tnt_update_init(tnt_update_t * update);
 void
 tnt_update_free(tnt_update_t * update);
 
-tnt_result_t
+tnt_error_t
 tnt_update_add(tnt_update_t * update,
 	tnt_update_type_t type, int field, char * data, int size);
 
-tnt_result_t
-tnt_update_pack(tnt_update_t * update, char ** data, int * size);
-
-tnt_result_t
+int
 tnt_update(tnt_t * t, int reqid, int ns, int flags,
 	char * key, int key_size, tnt_update_t * update);
 
-tnt_result_t
+int
 tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 	tnt_tuple_t * key, tnt_update_t * update);
 

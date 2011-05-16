@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_leb128.h>
 
 int
@@ -94,7 +94,7 @@ tnt_leb128_read(char * buf, int size, unsigned long * value)
 	return -1;
 }
 
-tnt_result_t
+void
 tnt_leb128_write(char * buf, unsigned long value)
 {
 	if (value >= (1 << 7)) {
@@ -109,8 +109,6 @@ tnt_leb128_write(char * buf, unsigned long value)
 		*(buf++) = ((value >> 7) | 0x80);
 	}
 	*(buf++) = ((value) & 0x7F);
-
-	return TNT_EOK;
 }
 
 int

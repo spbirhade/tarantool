@@ -77,10 +77,10 @@ tnt_tuples_free(tnt_tuples_t * tuples);
 tnt_tuple_t*
 tnt_tuples_add(tnt_tuples_t * tuples);
 
-tnt_result_t
+tnt_error_t
 tnt_tuples_pack(tnt_tuples_t * tuples, char ** data, int * size);
 
-tnt_result_t
+tnt_error_t
 tnt_tuples_unpack(tnt_tuples_t * tuples, char * data, int size);
 
 void
@@ -89,13 +89,13 @@ tnt_tuple_init(tnt_tuple_t * tuple);
 void
 tnt_tuple_free(tnt_tuple_t * tuple);
 
-tnt_result_t
+tnt_error_t
 tnt_tuple_add(tnt_tuple_t * tuple, char * data, int size);
 
-tnt_result_t
+tnt_error_t
 tnt_tuple_pack(tnt_tuple_t * tuple, char ** data, int * size);
 
-tnt_result_t
+tnt_error_t
 tnt_tuple_pack_to(tnt_tuple_t * tuple, char * dest);
 
 #endif

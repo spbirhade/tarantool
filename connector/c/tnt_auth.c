@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt_aes.h>
 #include <tnt_cmac.h>
@@ -58,13 +58,13 @@ tnt_auth_hash(tnt_t * t, tnt_auth_chap_hdr_server1_t * hs1,
 	tnt_aes_cmac_final((u_int8_t*)hc->hash, &cmac);
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_auth_chap(tnt_t * t)
 {
 	/* Stage1. Recv server Token. */
 	tnt_auth_chap_hdr_server1_t hs1;
 
-	tnt_result_t r = tnt_io_recv(t,
+	tnt_error_t r = tnt_io_recv(t,
 		(void*)&hs1, sizeof(tnt_auth_chap_hdr_server1_t));
 
 	if (r != TNT_EOK)
@@ -121,7 +121,7 @@ tnt_auth_chap(tnt_t * t)
 	return TNT_EAUTH;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_auth(tnt_t * t)
 {
 	switch (t->auth_type) {

@@ -33,7 +33,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
@@ -42,15 +42,15 @@
 #include <tnt_leb128.h>
 #include <tnt_delete.h>
 
-tnt_result_t
+int
 tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
 {
 	char * td;
 	int ts;
-	tnt_result_t result = tnt_tuple_pack(key, &td, &ts);
+	t->error = tnt_tuple_pack(key, &td, &ts);
 
-	if (result != TNT_EOK)
-		return result;
+	if (t->error != TNT_EOK)
+		return -1;
 
 	tnt_proto_header_t hdr;
 
@@ -70,26 +70,24 @@ tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
 	v[2].iov_base = td;
 	v[2].iov_len  = ts;
 
-	result = tnt_io_sendv(t, v, 3);
+	t->error = tnt_io_sendv(t, v, 3);
 
 	tnt_mem_free(td);
-	return result;
+	return (t->error == TNT_EOK) ? 0 : -1;
 }
 
-tnt_result_t
+int
 tnt_delete(tnt_t * t, int reqid, int ns, char * key, int key_size)
 {
-	tnt_result_t result;
 	tnt_tuple_t k;
-
 	tnt_tuple_init(&k);
 
-	result = tnt_tuple_add(&k, key, key_size);
+	t->error = tnt_tuple_add(&k, key, key_size);
 
-	if (result != TNT_EOK)
-		return result;
+	if (t->error != TNT_EOK)
+		return -1;
 
-	result = tnt_delete_tuple(t, reqid, ns, &k);
+	int result = tnt_delete_tuple(t, reqid, ns, &k);
 
 	tnt_tuple_free(&k);
 	return result;

@@ -39,12 +39,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
 #include <tnt_io.h>
 
-tnt_result_t
+tnt_error_t
 tnt_io_init(tnt_t * t)
 {
 	t->fd = -1;
@@ -64,7 +64,6 @@ tnt_io_init(tnt_t * t)
 		if (t->sbuf == NULL) {
 
 			if (t->rbuf) {
-
 				free(t->rbuf);
 				t->rbuf = NULL;
 			}
@@ -88,7 +87,7 @@ tnt_io_free(tnt_t * t)
 		tnt_mem_free(t->sbuf);
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_resolve(struct sockaddr_in * addr,
 	const char * hostname, unsigned short port)
 {
@@ -108,31 +107,35 @@ tnt_io_resolve(struct sockaddr_in * addr,
 	return TNT_EOK;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_nonblock(tnt_t * t, int set)
 {
 	int flags = fcntl(t->fd, F_GETFL);
 
-	if (flags == -1)
-		return TNT_ENONBLOCK;
+	if (flags == -1) {
+		t->error_errno = errno;
+		return TNT_ESYSTEM;
+	}
 
 	if (set)
 		flags |= O_NONBLOCK;
 	else
 		flags &= ~O_NONBLOCK;
 
-	if (fcntl(t->fd, F_SETFL, flags) == -1)
-		return TNT_ENONBLOCK;
+	if (fcntl(t->fd, F_SETFL, flags) == -1) {
+		t->error_errno = errno;
+		return TNT_ESYSTEM;
+	}
 
 	return TNT_EOK;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_connect_do(tnt_t * t, char * host, int port)
 {
 	struct sockaddr_in addr;
 	
-	tnt_result_t result = tnt_io_resolve(&addr, host, port);
+	tnt_error_t result = tnt_io_resolve(&addr, host, port);
 
 	if (result != TNT_EOK)
 		return result;
@@ -154,8 +157,10 @@ tnt_io_connect_do(tnt_t * t, char * host, int port)
 			tmout.tv_sec  = t->opt_tmout;
 			tmout.tv_usec = 0;
 
-			if (select(t->fd + 1, NULL, &fds, NULL, &tmout) == -1)
-				return TNT_ECONNECT;
+			if (select(t->fd + 1, NULL, &fds, NULL, &tmout) == -1) {
+				t->error_errno = errno;
+				return TNT_ESYSTEM;
+			}
 
 			if (!FD_ISSET(t->fd, &fds))
 				return TNT_ETMOUT;
@@ -163,11 +168,16 @@ tnt_io_connect_do(tnt_t * t, char * host, int port)
 			int opt = 0;
 			socklen_t len = sizeof(opt);
 
-			if ((getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &opt, &len) == -1) || opt)
-				return TNT_ECONNECT;
+			if ((getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &opt, &len) == -1) || opt) {
+				t->error_errno = (opt) ? opt : errno;
+				return TNT_ESYSTEM;
+			}
 
-		} else
-			return TNT_ECONNECT;
+		} else {
+
+			t->error_errno = errno;
+			return TNT_ESYSTEM;
+		}
 	}
 
 	result = tnt_io_nonblock(t, 0);
@@ -178,38 +188,29 @@ tnt_io_connect_do(tnt_t * t, char * host, int port)
 	return TNT_EOK;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_setopts(tnt_t * t)
 {
 	int opt = 1;
 
-	if (setsockopt(t->fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-
-		tnt_io_close(t);
-		return TNT_ESOCKOPT;
-	}
+	if (setsockopt(t->fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1)
+		goto error;
 
 	if (t->sbuf_size)
 		opt = t->sbuf_size * 2;
 	else
 		opt = 3493888;
 
-	if (setsockopt(t->fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt)) == -1) {
-
-		tnt_io_close(t);
-		return TNT_ESOCKOPT;
-	}
+	if (setsockopt(t->fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt)) == -1)
+		goto error;
 
 	if (t->rbuf_size)
 		opt = t->rbuf_size * 2;
 	else
 		opt = 3493888;
 
-	if (setsockopt(t->fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1) {
-
-		tnt_io_close(t);
-		return TNT_ESOCKOPT;
-	}
+	if (setsockopt(t->fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1)
+		goto error;
 
 	if (t->opt_tmout_snd) {
 
@@ -218,11 +219,8 @@ tnt_io_setopts(tnt_t * t)
 		tmout.tv_sec  = t->opt_tmout_snd;
 		tmout.tv_usec = 0;
 
-		if (setsockopt(t->fd, SOL_SOCKET, SO_SNDTIMEO, &tmout, sizeof(tmout)) == -1) {
-
-			tnt_io_close(t);
-			return TNT_ESOCKOPT;
-		}
+		if (setsockopt(t->fd, SOL_SOCKET, SO_SNDTIMEO, &tmout, sizeof(tmout)) == -1)
+			goto error;
 	}
 
 	if (t->opt_tmout_rcv) {
@@ -232,25 +230,29 @@ tnt_io_setopts(tnt_t * t)
 		tmout.tv_sec  = t->opt_tmout_rcv;
 		tmout.tv_usec = 0;
 
-		if (setsockopt(t->fd, SOL_SOCKET, SO_RCVTIMEO, &tmout, sizeof(tmout)) == -1) {
-
-			tnt_io_close(t);
-			return TNT_ESOCKOPT;
-		}
+		if (setsockopt(t->fd, SOL_SOCKET, SO_RCVTIMEO, &tmout, sizeof(tmout)) == -1)
+			goto error;
 	}
 
 	return TNT_EOK;
+
+error:
+	t->error_errno = errno;
+	tnt_io_close(t);
+	return TNT_ESYSTEM;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_connect(tnt_t * t, char * host, int port)
 {
 	t->fd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (t->fd < 0)
-		return TNT_ESOCKET;
+	if (t->fd < 0) {
+		t->error_errno = errno;
+		return TNT_ESYSTEM;
+	}
 
-	tnt_result_t result = tnt_io_setopts(t);
+	tnt_error_t result = tnt_io_setopts(t);
 
 	if (result != TNT_EOK)
 		return result;
@@ -258,7 +260,6 @@ tnt_io_connect(tnt_t * t, char * host, int port)
 	result = tnt_io_connect_do(t, host, port);
 
 	if (result != TNT_EOK) {
-
 		tnt_io_close(t);
 		return result;
 	}
@@ -278,12 +279,12 @@ tnt_io_close(tnt_t * t)
 	t->connected = 0;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_flush(tnt_t * t)
 {
 	if (t->sbuf_off) {
 
-		tnt_result_t r = tnt_io_send(t, t->sbuf, t->sbuf_off);
+		tnt_error_t r = tnt_io_send(t, t->sbuf, t->sbuf_off);
 
 		if (r != TNT_EOK)
 			return r;
@@ -294,7 +295,7 @@ tnt_io_flush(tnt_t * t)
 	return TNT_EOK;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_send(tnt_t * t, char * buf, int size)
 {
 	int r, off = 0;
@@ -305,8 +306,10 @@ tnt_io_send(tnt_t * t, char * buf, int size)
 		if (r == -1) {
 			if (errno == EAGAIN || errno == EINTR)
 				continue;
-			else
-				return TNT_EWRITE;
+			else {
+				t->error_errno = errno;
+				return TNT_ESYSTEM;
+			}
 		}
 
 		off += r;
@@ -315,11 +318,13 @@ tnt_io_send(tnt_t * t, char * buf, int size)
 	return TNT_EOK;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_sendv_asis(tnt_t * t, void * iovec, int count)
 {
-	if (writev(t->fd, iovec, count) == -1)
-		return TNT_EWRITE;
+	if (writev(t->fd, iovec, count) == -1) {
+		t->error_errno = errno;
+		return TNT_ESYSTEM;
+	}
 
 	return TNT_EOK;
 }
@@ -339,7 +344,7 @@ tnt_io_sendv_put(tnt_t * t, void * iovec, int count)
 	}
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_sendv(tnt_t * t, void * iovec, int count)
 {
 	if (t->sbuf == NULL)
@@ -354,23 +359,22 @@ tnt_io_sendv(tnt_t * t, void * iovec, int count)
 		return TNT_EBIG;
 
 	if ((t->sbuf_off + size) <= t->sbuf_size) {
-
 		tnt_io_sendv_put(t, iovec, count);
 		return TNT_EOK;
 	}
 
-	tnt_result_t r = tnt_io_send(t, t->sbuf, t->sbuf_off);
+	tnt_error_t r = tnt_io_send(t, t->sbuf, t->sbuf_off);
 
 	if (r != TNT_EOK)
 		return r;
 
 	t->sbuf_off = 0;
-	tnt_io_sendv_put(t, iovec, count);
 
+	tnt_io_sendv_put(t, iovec, count);
 	return TNT_EOK;
 }
 
-static tnt_result_t
+static tnt_error_t
 tnt_io_recv_asis(tnt_t * t, char * buf, int size, int off)
 {
 	do {
@@ -379,8 +383,10 @@ tnt_io_recv_asis(tnt_t * t, char * buf, int size, int off)
 		if (r == -1) {
 			if (errno == EAGAIN || errno == EINTR)
 				continue;
-			else
-				return TNT_EREAD;
+			else {
+				t->error_errno = errno;
+				return TNT_ESYSTEM;
+			}
 		}
 
 		off += r;
@@ -389,7 +395,7 @@ tnt_io_recv_asis(tnt_t * t, char * buf, int size, int off)
 	return TNT_EOK;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_recv(tnt_t * t, char * buf, int size)
 {
 	if (t->rbuf == NULL)
@@ -403,7 +409,6 @@ tnt_io_recv(tnt_t * t, char * buf, int size)
 
 			memcpy(buf + off, t->rbuf + t->rbuf_off, left);
 			t->rbuf_off += left;
-
 			return TNT_EOK;
 		}
 
@@ -423,8 +428,10 @@ tnt_io_recv(tnt_t * t, char * buf, int size)
 			if (t->rbuf_top == -1) {
 				if (errno == EAGAIN || errno == EINTR)
 					continue;
-				else
-					return TNT_EREAD;
+				else {
+					t->error_errno = errno;
+					return TNT_ESYSTEM;
+				}
 			}
 
 			break;
@@ -436,7 +443,6 @@ tnt_io_recv(tnt_t * t, char * buf, int size)
 
 			memcpy(buf + off, t->rbuf, rv);
 			t->rbuf_off = rv;
-
 			return TNT_EOK;
 		}
 
@@ -446,7 +452,7 @@ tnt_io_recv(tnt_t * t, char * buf, int size)
 	return TNT_EOK;
 }
 
-tnt_result_t
+tnt_error_t
 tnt_io_recv_continue(tnt_t * t, char * buf, int size, int off)
 {
 	return tnt_io_recv(t, buf + off, size - off);

@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-tnt_result_t
+int
 tnt_insert(tnt_t * t, int reqid, int ns, int flags, tnt_tuple_t * data);
 
 #endif

@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <tnt_result.h>
+#include <tnt_error.h>
 #include <tnt_mem.h>
 
 static tnt_mallocf_t  _tnt_malloc  = (tnt_mallocf_t)malloc;

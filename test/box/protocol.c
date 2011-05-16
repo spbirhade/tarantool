@@ -9,7 +9,7 @@ main()
 {
 	tnt_t * t = tnt_init(TNT_PROTO_RW, 0, 0);
 
-	if (tnt_connect(t, "localhost", 33013) != TNT_EOK) {
+	if (tnt_connect(t, "localhost", 33013) == -1) {
 
 	  tnt_free(t);
 	  return 1;
