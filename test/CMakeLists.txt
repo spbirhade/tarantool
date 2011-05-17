@@ -3,9 +3,8 @@ add_custom_target(test
     )
 
 add_executable(box/protocol
-  ${CMAKE_SOURCE_DIR}/test/box/protocol.c
-  ${CMAKE_SOURCE_DIR}/third_party/rijndael.c
-  ${CMAKE_SOURCE_DIR}/third_party/cmac.c)
+  ${CMAKE_SOURCE_DIR}/test/box/protocol.c)
+
 target_link_libraries (box/protocol connector_c)
 
 install (PROGRAMS tarantool DESTINATION bin)

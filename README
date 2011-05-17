@@ -36,7 +36,7 @@ There is no 'make install' goal, but no installation
 is required either.
 Tarantool regression testing framework (test/test-run.py) is the
 simplest way to setup and start the server, but it requires a few
-additional Python modules:
+additional Python2 modules:
  * daemon
  * pyyaml
  * pexpect.
