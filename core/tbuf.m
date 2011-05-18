@@ -71,7 +71,7 @@ tbuf_alloc(struct palloc_pool *pool)
 }
 
 struct tbuf *
-tbuf_alloc_fixed(struct palloc_pool *pool, void *data, size_t len)
+tbuf_alloc_fixed(struct palloc_pool *pool, void *data, u32 len)
 {
 	struct tbuf *e = palloc(pool, sizeof(*e));
 	e->pool = NULL;
@@ -266,6 +266,7 @@ luaT_tbuf_append(struct lua_State *L)
 {
 	struct tbuf *b = luaT_checktbuf(L, 1);
 	const char *format = luaL_checkstring(L, 2);
+	size_t size;
 	u32 u32;
 	u64 u64;
 	const char *str;
@@ -286,13 +287,13 @@ luaT_tbuf_append(struct lua_State *L)
 			write_varint32(b, u32);
 			break;
 		case 's':
-			str = luaL_checklstring(L, i, &u32);
-			tbuf_append(b, str, u32);
+			str = luaL_checklstring(L, i, &size);
+			tbuf_append(b, str, size);
 			break;
 		case 'f':
-			str = luaL_checklstring(L, i, &u32);
-			write_varint32(b, u32);
-			tbuf_append(b, str, u32);
+			str = luaL_checklstring(L, i, &size);
+			write_varint32(b, size);
+			tbuf_append(b, str, size);
 			break;
 		default:
 			lua_pushliteral(L, "bad pack format");
