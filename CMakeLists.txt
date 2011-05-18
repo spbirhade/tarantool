@@ -4,12 +4,16 @@ include(CheckLibraryExists)
 include(CheckIncludeFile)
 include(CheckCCompilerFlag)
 include(CheckSymbolExists)
+include(TestBigEndian)
 find_program(ECHO echo)
 find_program(CAT cat)
 find_program(GIT git)
 find_program(RAGEL ragel)
 find_program(CONFETTI confetti)
 link_directories(${PROJECT_SOURCE_DIR}/third_party/luajit/src)
+
+include(cmake/check_objective_c_compiler.cmake)
+
 #
 # This instructs the rest of the build system what product
 # and what modules to produce.
@@ -47,6 +51,24 @@ endif()
 
 check_symbol_exists(MAP_ANON sys/mman.h HAVE_MAP_ANON)
 check_symbol_exists(MAP_ANONYMOUS sys/mman.h HAVE_MAP_ANONYMOUS)
+
+test_big_endian(HAVE_BYTE_ORDER_BIG_ENDIAN)
+
+#
+# We do not perform host-to-network byte order translation,
+# and simply assume the machine is little-endian.
+# We also do not bother with trying to avoid unaligned
+# word access. Refuse to compile on rare hardware such as
+# Sparc or Itanium.
+#
+if (${HAVE_BYTE_ORDER_BIG_ENDIAN} OR
+    ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "sparc" OR
+    ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ia64" OR
+    ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^alpha")
+    message (FATAL_ERROR "Unsupported architecture -- ${CMAKE_SYSTEM_PROCESSOR}, ")
+    message (FATAL_ERROR "Tarantool currently only supports little-endian hardware")
+    message (FATAL_ERROR "with unaligned word access.")
+endif()
 
 #
 # Some versions of GNU libc define non-portable __libc_stack_end
@@ -94,7 +116,7 @@ execute_process (COMMAND ${GIT} describe HEAD
 #
 set (CPACK_PACKAGE_VERSION_MAJOR "1")
 set (CPACK_PACKAGE_VERSION_MINOR "4")
-set (CPACK_PACKAGE_VERSION_PATCH "0")
+set (CPACK_PACKAGE_VERSION_PATCH "1")
 if (TARANTOOL_VERSION STREQUAL "")
     set (TARANTOOL_VERSION
         "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
