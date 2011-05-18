@@ -2,7 +2,7 @@ require("fiber")
 require("box")
 
 local error, print, pairs, type = error, print, pairs, type
-local table, box = table, box
+local table, tbuf, box = table, tbuf, box
 
 module(...)
 
@@ -25,6 +25,18 @@ def("get_all_tuples",
             local result = {}
             for i, tuple in box.index.hashpairs(index) do
                     table.insert(result, tuple)
+            end
+            return 0, result
+    end)
+
+def("get_all_pkeys",
+    function (txn, namespace)
+            local index = namespace.index[0]
+            local result = {}
+            for i, tuple in box.index.hashpairs(index) do
+                    local b = tbuf.alloc()
+                    tbuf.append(b, "f", tuple[0])
+                    table.insert(result, b)
             end
             return 0, result
     end)

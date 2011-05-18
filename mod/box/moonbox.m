@@ -332,6 +332,8 @@ luaT_openbox(struct lua_State *L)
 	luaL_register(L, "box.index", indexlib);
 
 	luaL_newmetatable(L, tuplelib_name);
+	lua_pushstring(L, tuplelib_name);
+	lua_setfield(L, -2, "__metatable");
 	luaL_register(L, NULL, tuplelib);
 
 	luaL_newmetatable(L, txnlib_name);

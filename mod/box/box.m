@@ -729,7 +729,7 @@ commit_delete(struct box_txn *txn)
 static bool
 op_is_select(u32 op)
 {
-	return op == SELECT || op == SELECT_LIMIT;
+	return op == SELECT || op == SELECT_LIMIT || op == EXEC_LUA;
 }
 
 struct box_txn *

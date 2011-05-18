@@ -352,7 +352,7 @@ luaT_tbuf_alloc_fixed(struct lua_State *L)
 }
 
 static const struct luaL_reg tbuflib_m [] = {
-	{"#", luaT_tbuf_len},
+	{"__len", luaT_tbuf_len},
 	{"__tostring", luaT_tbuf_tostring},
 	{NULL, NULL}
 };
@@ -370,6 +370,8 @@ int
 luaT_opentbuf(struct lua_State *L)
 {
 	luaL_newmetatable(L, tbuflib_name);
+	lua_pushstring(L, tbuflib_name);
+	lua_setfield(L, -2, "__metatable");
 	luaL_register(L, NULL, tbuflib_m);
 	luaL_register(L, "tbuf", tbuflib);
 	return 0;

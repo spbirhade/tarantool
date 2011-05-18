@@ -1,5 +1,6 @@
 
-local error, print, type, pairs, setfenv = error, print, type, pairs, setfenv
+local error, print, type, pairs, setfenv, getmetatable =
+      error, print, type, pairs, setfenv, getmetatable
 local tbuf = tbuf
 
 module(...)
@@ -58,7 +59,18 @@ function defproc(name, proc_body, env)
 
                 if type(result) == "table" then
                         for k, v in pairs(result) do
-                                box.tuple_add_iov(txn, v)
+                                if type(v) ~= "userdata" then
+                                        error("unexpected type of result: " .. type(v))
+                                end
+
+                                local metatable = getmetatable(v)
+                                if metatable == "Tarantool.box.tuple" then
+                                        box.tuple_add_iov(txn, v)
+                                elseif metatable == "Tarantool.tbuf" then
+                                        tbuf.add_iov(v, #v)
+                                else
+                                        error("unexpected metatable of result: " .. metatable)
+                                end
                         end
                         tbuf.append(nspace, "u", #result)
                 elseif type(result) == "number" then
