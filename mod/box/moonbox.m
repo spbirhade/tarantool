@@ -85,7 +85,7 @@ tuple_index_(struct lua_State *L)
 	return 1;
 }
 
-
+#if 0
 struct box_tuple *
 luaT_toboxtuple(struct lua_State *L, int table)
 {
@@ -106,7 +106,7 @@ luaT_toboxtuple(struct lua_State *L, int table)
 	u8 *p = tuple->data;
 	for (int i = 0; i < cardinality; i++) {
 		lua_rawgeti(L, table, i + 1);
-		u32 len;
+		size_t len;
 		const char *str = lua_tolstring(L, -1, &len);
 		lua_pop(L, 1);
 
@@ -117,6 +117,7 @@ luaT_toboxtuple(struct lua_State *L, int table)
 
 	return tuple;
 }
+#endif
 
 static const struct luaL_reg tuplelib [] = {
 	{"__len", tuple_len_},
