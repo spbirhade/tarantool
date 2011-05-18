@@ -86,6 +86,10 @@ if (ENABLE_SSL)
   set (common_libraries ${common_libraries} ${OPENSSL_LIBRARIES})
 endif()
 
+if (ENABLE_SASL)
+  set (common_libraries ${common_libraries} gsasl)
+endif()
+
 if (ENABLE_BACKTRACE AND HAVE_BFD)
   set (common_libraries ${common_libraries} bfd)
   if (ENABLE_STATIC)

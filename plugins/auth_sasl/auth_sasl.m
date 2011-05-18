@@ -34,17 +34,17 @@
 #include <say.h>
 
 static
-struct plug_desc auth_ssl_desc = {
+struct plug_desc auth_sasl_desc = {
 
-	.name   = "auth_ssl",
+	.name   = "auth_sasl",
 	.author = "pmwka",
-	.desc   = "tarantool SSL authentication plugin"
+	.desc   = "tarantool SASL authentication plugin"
 };
 
 int
 tnt_module_init(struct plug_desc **pd)
 {
-	*pd = &auth_ssl_desc;
+	*pd = &auth_sasl_desc;
 
 	return TNT_MODULE_OK;
 }
