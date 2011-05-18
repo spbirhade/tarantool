@@ -82,6 +82,10 @@ if (ENABLE_GCOV)
   set (common_libraries ${common_libraries} gcov)
 endif()
 
+if (ENABLE_SSL)
+  set (common_libraries ${common_libraries} ${OPENSSL_LIBRARIES})
+endif()
+
 if (ENABLE_BACKTRACE AND HAVE_BFD)
   set (common_libraries ${common_libraries} bfd)
   if (ENABLE_STATIC)

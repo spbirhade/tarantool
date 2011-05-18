@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 2.6)
+
 project(tarantool)
+
 include(CheckLibraryExists)
 include(CheckIncludeFile)
 include(CheckCCompilerFlag)
 include(CheckSymbolExists)
+include(FindOpenSSL)
+
 find_program(ECHO echo)
 find_program(CAT cat)
 find_program(GIT git)
@@ -16,7 +20,8 @@ find_program(CONFETTI confetti)
 #
 set (TARANTOOL_PRODUCT "box")
 set (TARANTOOL_MODULES "box" "feeder")
-set (TARANTOOL_PLUGS "dummy" "auth_chap")
+set (TARANTOOL_PLUGS "dummy" "auth_chap" "auth_ssl")
+set (TARANTOOL_CLIENTS "tnt" "tnt_stress")
 
 #
 # Set default build type to Debug. This is to ease a developer's
@@ -176,26 +181,22 @@ if (ENABLE_BACKTRACE)
     endif()
 endif()
 
+set (HAVE_OPENSSL False)
+option(ENABLE_SSL "Enable OpenSSL support for authenticaton" ON)
+
+if (ENABLE_SSL)
+	set (HAVE_OPENSSL ${OPENSSL_FOUND})
+	if (NOT OPENSSL_FOUND)
+        message (FATAL_ERROR
+                 "ENABLE_SSL option requested but openssl library is not found")
+	endif()
+endif()
+
 option(ENABLE_STATIC "Perform static linking whenever possible." OFF)
 
 if (ENABLE_STATIC)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static")
 endif()
-
-# function to build tarantool clients that use connector/c
-function(tarantool_client client_name)
-  set (client_sources ${ARGV})
-  list(REMOVE_ITEM client_sources ${client_name})
-
-  add_executable(${client_name} ${client_sources})
-
-  set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
-	"${core_cflags}")
-
-  target_link_libraries (${client_name} connector_c)
-
-  install (TARGETS ${client_name} DESTINATION bin)
-endfunction()
 
 # CMake believes that Objective C is a flavor of C++, not C,
 # and uses g++ compiler for .m files. Since talking CMake out
@@ -213,7 +214,6 @@ add_subdirectory(core)
 add_subdirectory(mod)
 add_subdirectory(plugins)
 add_subdirectory(test)
-add_subdirectory(test-stress)
 add_subdirectory(client)
 
 install (FILES README LICENSE doc/box-protocol.txt
@@ -241,5 +241,6 @@ message (STATUS "ENABLE_GCOV: ${ENABLE_GCOV}")
 message (STATUS "ENABLE_TRACE: ${ENABLE_TRACE}")
 message (STATUS "ENABLE_BACKTRACE: ${ENABLE_BACKTRACE}")
 message (STATUS "Backtrace is with symbol resolve: ${HAVE_BFD}")
+message (STATUS "ENABLE_SSL: ${ENABLE_SSL}")
 message (STATUS "ENABLE_STATIC: ${ENABLE_STATIC}")
 message (STATUS "")

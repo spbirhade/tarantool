@@ -1,1 +1,19 @@
-tarantool_client("tnt" tnt.c)
+
+# function to build tarantool clients that use connector/c
+function(tarantool_client client_name)
+  set (client_sources ${ARGV})
+  list(REMOVE_ITEM client_sources ${client_name})
+
+  add_executable(${client_name} ${client_sources})
+
+  set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
+	"${core_cflags}")
+
+  target_link_libraries (${client_name} connector_c)
+
+  install (TARGETS ${client_name} DESTINATION bin)
+endfunction()
+
+foreach (client ${TARANTOOL_CLIENTS})
+  add_subdirectory(${client})
+endforeach()

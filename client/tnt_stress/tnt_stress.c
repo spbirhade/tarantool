@@ -30,7 +30,7 @@
 #include <unistd.h>
 
 #include <libtnt.h>
-#include <test-stress/tnt_stress.h>
+#include <client/tnt_stress/tnt_stress.h>
 
 static
 stress_t stress_big[] =
