@@ -1,3 +1,5 @@
+#ifndef TARANTOOL_STAT_H_INCLUDED
+#define TARANTOOL_STAT_H_INCLUDED
 /*
  * Copyright (C) 2010 Mail.RU
  * Copyright (C) 2010 Yuriy Vostrikov
@@ -24,14 +26,12 @@
  * SUCH DAMAGE.
  */
 
-#ifndef TARANTOOL_STAT_H
-#define TARANTOOL_STAT_H
-
 #include <tbuf.h>
 
 void stat_init(void);
+void stat_clear(void);
 int stat_register(char **name, size_t count);
 void stat_collect(int base, int name, i64 value);
 void stat_print(lua_State *L, struct tbuf *buf);
 
-#endif
+#endif /* TARANTOOL_STAT_H_INCLUDED */

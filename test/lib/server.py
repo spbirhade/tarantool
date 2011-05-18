@@ -82,6 +82,7 @@ class Server(object):
 
   def find_exe(self, builddir, silent=True):
     "Locate server executable in the build dir or in the PATH."
+    self.builddir = builddir
     exe_name = self.default_bin_name()
     path = builddir + os.pathsep + os.environ["PATH"]
     if not silent:
@@ -129,6 +130,11 @@ class Server(object):
       else:
         os.makedirs(self.vardir)
     shutil.copy(self.config, os.path.join(self.vardir, self.default_config_name))
+
+    if not os.access(os.path.join(self.vardir, "scripts"), os.F_OK):
+      os.makedirs(os.path.join(self.vardir, "scripts"))
+      shutil.copytree(os.path.join(self.builddir, "..", "..", "scripts", "lua"),
+                      os.path.join(self.vardir, "scripts", "lua"))
 
   def init(self):
     pass

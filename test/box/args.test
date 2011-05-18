@@ -1,8 +1,13 @@
 import sys
 import os
 
+server.stop()
+server.start()
+
 server.test_option("--help")
 server.test_option("-h")
+
+
 sys.stdout.push_filter("(/\S+)+/tarantool", "tarantool")
 server.test_option("-Z")
 server.test_option("--no-such-option")
@@ -12,6 +17,7 @@ server.test_option("-c")
 server.test_option("--config tarantool.cfg")
 server.test_option("--daemonize")
 sys.stdout.pop_filter()
+
 sys.stdout.push_filter("(\d)\.\d\.\d(-\d+-\w+)?", "\\1.minor.patch-<rev>-<commit>")
 server.test_option("--version")
 server.test_option("-V          ")
@@ -30,10 +36,12 @@ import shutil
 shutil.rmtree(os.path.join(vardir, "bug726778"), True)
 cfg = os.path.join(vardir, "bug726778.cfg")
 os.mkdir(os.path.join(vardir, "bug726778"))
+os.symlink(os.path.join("..", "scripts"), os.path.join(vardir, "bug726778", "scripts"))
 os.mkdir(os.path.join(vardir, "bug726778/snapshots"))
 os.mkdir(os.path.join(vardir, "bug726778/xlogs"))
 
 os.symlink(os.path.abspath("box/bug726778.cfg"), cfg)
+
 
 sys.stdout.push_filter("(/\S+)+/tarantool", "tarantool")
 server.test_option("--config=bug726778.cfg --init-storage")

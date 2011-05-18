@@ -1,0 +1,15 @@
+# encoding: tarantool
+exec sql "ping"
+
+exec sql "insert into t0 values (0, 'I am a tuple 0')"
+exec sql "insert into t0 values (1, 'I am a tuple 1')"
+exec sql "insert into t0 values (2, 'I am a tuple 2')"
+exec sql "insert into t0 values (3, 'I am a tuple 3')"
+exec sql "insert into t0 values (4, 'I am a tuple 4')"
+exec sql "insert into t0 values (5, 'I am a tuple 5')"
+exec sql "insert into t0 values (6, 'I am a tuple 6')"
+exec sql "insert into t0 values (7, 'I am a tuple 7')"
+exec sql "insert into t0 values (8, 'I am a tuple 8')"
+exec sql "insert into t0 values (9, 'I am a tuple 9')"
+
+exec sql "lua_call get_all_tuples() over t0"

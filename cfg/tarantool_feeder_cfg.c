@@ -11,8 +11,7 @@
  */
 
 
-#include "prscfg.h"
-void out_warning(ConfettyError r, char *format, ...);
+#include "cfg/warning.h"
 #include "cfg/tarantool_feeder_cfg.h"
 static int
 cmpNameAtoms(NameAtom *a, NameAtom *b) {
@@ -42,6 +41,8 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->io_collect_interval = 0;
 	c->backlog = 1024;
 	c->readahead = 16320;
+	c->lua_path = strdup("lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua");
+	if (c->lua_path == NULL) return CNF_NOMEMORY;
 	c->wal_feeder_bind_ipaddr = NULL;
 	c->wal_feeder_bind_port = 0;
 	c->wal_feeder_dir = NULL;
@@ -90,6 +91,9 @@ static NameAtom _name__backlog[] = {
 };
 static NameAtom _name__readahead[] = {
 	{ "readahead", -1, NULL }
+};
+static NameAtom _name__lua_path[] = {
+	{ "lua_path", -1, NULL }
 };
 static NameAtom _name__wal_feeder_bind_ipaddr[] = {
 	{ "wal_feeder_bind_ipaddr", -1, NULL }
@@ -309,6 +313,17 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGRANGE;
 		c->readahead = i32;
 	}
+	else if ( cmpNameAtoms( opt->name, _name__lua_path) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->lua_path == NULL) || strcmp(opt->paramValue.stringval, c->lua_path) != 0))
+			return CNF_RDONLY;
+		c->lua_path = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->lua_path == NULL)
+			return CNF_NOMEMORY;
+	}
 	else if ( cmpNameAtoms( opt->name, _name__wal_feeder_bind_ipaddr) ) {
 		if (opt->paramType != stringType )
 			return CNF_WRONGTYPE;
@@ -475,6 +490,7 @@ typedef enum IteratorState {
 	S_name__io_collect_interval,
 	S_name__backlog,
 	S_name__readahead,
+	S_name__lua_path,
 	S_name__wal_feeder_bind_ipaddr,
 	S_name__wal_feeder_bind_port,
 	S_name__wal_feeder_dir,
@@ -651,6 +667,16 @@ again:
 			}
 			sprintf(*v, "%"PRId32, c->readahead);
 			snprintf(buf, PRINTBUFLEN-1, "readahead");
+			i->state = S_name__lua_path;
+			return buf;
+		case S_name__lua_path:
+			*v = (c->lua_path) ? strdup(c->lua_path) : NULL;
+			if (*v == NULL && c->lua_path) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			snprintf(buf, PRINTBUFLEN-1, "lua_path");
 			i->state = S_name__wal_feeder_bind_ipaddr;
 			return buf;
 		case S_name__wal_feeder_bind_ipaddr:
@@ -759,6 +785,9 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 	dst->io_collect_interval = src->io_collect_interval;
 	dst->backlog = src->backlog;
 	dst->readahead = src->readahead;
+	dst->lua_path = src->lua_path == NULL ? NULL : strdup(src->lua_path);
+	if (src->lua_path != NULL && dst->lua_path == NULL)
+		return CNF_NOMEMORY;
 	dst->wal_feeder_bind_ipaddr = src->wal_feeder_bind_ipaddr == NULL ? NULL : strdup(src->wal_feeder_bind_ipaddr);
 	if (src->wal_feeder_bind_ipaddr != NULL && dst->wal_feeder_bind_ipaddr == NULL)
 		return CNF_NOMEMORY;
@@ -787,6 +816,8 @@ destroy_tarantool_cfg(tarantool_cfg* c) {
 		free(c->pid_file);
 	if (c->logger != NULL)
 		free(c->logger);
+	if (c->lua_path != NULL)
+		free(c->lua_path);
 	if (c->wal_feeder_bind_ipaddr != NULL)
 		free(c->wal_feeder_bind_ipaddr);
 	if (c->wal_feeder_dir != NULL)
@@ -888,6 +919,11 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 			return diff;
 		}
 	}
+	if (confetti_strcmp(c1->lua_path, c2->lua_path) != 0) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->lua_path");
+
+		return diff;
+}
 	if (confetti_strcmp(c1->wal_feeder_bind_ipaddr, c2->wal_feeder_bind_ipaddr) != 0) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_bind_ipaddr");
 

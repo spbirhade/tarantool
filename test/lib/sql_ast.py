@@ -21,6 +21,7 @@ INSERT_REQUEST_TYPE = 13
 SELECT_REQUEST_TYPE = 17
 UPDATE_REQUEST_TYPE = 19
 DELETE_REQUEST_TYPE = 20
+EXEC_LUA_REQUEST_TYPE = 21
 PING_REQUEST_TYPE = 65280
 
 ER = {
@@ -290,3 +291,22 @@ class StatementSelect(StatementPing):
     else:
       return "Found {0} tuples:\n".format(tuple_count) + "\n".join(tuples)
 
+class StatementLuaCall(StatementSelect):
+  reqeust_type = EXEC_LUA_REQUEST_TYPE
+  
+  def __init__(self, namespace_no, procname, procargs):
+    self.namespace_no = namespace_no
+    self.procname = procname
+    self.procargs = procargs
+
+  def pack(self):
+    buf = ctypes.create_string_buffer(PACKET_BUF_LEN)
+    offset = 0
+    struct.pack_into("<L", buf, offset, self.namespace_no)
+    offset += INT_FIELD_LEN
+    (buf, offset) = pack_field(self.procname, buf, offset)
+    struct.pack_into("<L", buf, offset, len(self.procargs))
+    offset += INT_FIELD_LEN
+    for arg in self.procargs:
+      (buf, offset) = pack_field(arg, buf, offset)
+    return buf[:offset]

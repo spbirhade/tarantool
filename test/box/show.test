@@ -1,9 +1,11 @@
 # encoding: tarantool
 # 
 import sys
+import time
 # clear statistics:
 server.stop()
 server.deploy()
+time.sleep(2)
 exec admin "show stat"
 exec admin "help"
 exec admin "show configuration"

@@ -4,12 +4,20 @@
 #  compatibility
 #  (https://bugs.launchpad.net/bugs/708685)
 
-show stat
+help
 ---
-statistics:
-  INSERT:        { rps:  0    , total:  0           }
-  SELECT_LIMIT:  { rps:  0    , total:  0           }
-  SELECT:        { rps:  0    , total:  0           }
-  UPDATE_FIELDS: { rps:  0    , total:  0           }
-  DELETE:        { rps:  0    , total:  0           }
+available commands:
+ - help
+ - exit
+ - show info
+ - show fiber
+ - show configuration
+ - show slab
+ - show palloc
+ - show stat
+ - save coredump
+ - save snapshot
+ - exec module command
+ - exec lua command
+ - reload configuration
 ...

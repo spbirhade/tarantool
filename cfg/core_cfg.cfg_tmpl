@@ -41,3 +41,7 @@ backlog=1024, ro
 
 # network io readahead
 readahead=16320
+
+
+# path for search scripts
+lua_path = "lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua", ro

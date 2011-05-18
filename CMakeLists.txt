@@ -3,6 +3,7 @@ project(tarantool)
 include(CheckLibraryExists)
 include(CheckIncludeFile)
 include(CheckCCompilerFlag)
+include(CheckSymbolExists)
 find_program(ECHO echo)
 find_program(CAT cat)
 find_program(GIT git)
@@ -13,8 +14,8 @@ link_directories(${PROJECT_SOURCE_DIR}/third_party/luajit/src)
 # This instructs the rest of the build system what product
 # and what modules to produce.
 #
-set (TARANTOOL_PRODUCT "silverbox")
-set (TARANTOOL_MODULES "silverbox" "feeder")
+set (TARANTOOL_PRODUCT "box")
+set (TARANTOOL_MODULES "box" "feeder")
 
 #
 # Set default build type to Debug. This is to ease a developer's
@@ -43,6 +44,9 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
 else()
     message (FATAL_ERROR "Unsupported platform -- ${CMAKE_SYSTEM_NAME}")
 endif()
+
+check_symbol_exists(MAP_ANON sys/mman.h HAVE_MAP_ANON)
+check_symbol_exists(MAP_ANONYMOUS sys/mman.h HAVE_MAP_ANONYMOUS)
 
 #
 # Some versions of GNU libc define non-portable __libc_stack_end
@@ -73,7 +77,7 @@ set (CMAKE_C_FLAGS_RELEASE "-DNDEBUG -DNVALGRIND")
 #
 # Enable 'make TAGS' target.
 #
-add_custom_target(TAGS COMMAND ctags -R -e -f TAGS
+add_custom_target(TAGS COMMAND ctags -R --langmap=ObjectiveC:.m.h -e -f TAGS
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 #
@@ -138,7 +142,7 @@ if (ENABLE_GCOV)
     endif()
 endif()
 
-option(ENABLE_TRACE "Enable debug trace of tarantool_silverbox execution to
+option(ENABLE_TRACE "Enable debug trace of tarantool_box execution to
 a file specified in TARANTOOL_TRACE environment variable" ON)
 
 option(ENABLE_BACKTRACE "Enable output of fiber backtrace information in 'show
@@ -170,6 +174,21 @@ if (ENABLE_BACKTRACE)
     endif()
 endif()
 
+option(ENABLE_STATIC "Perform static linking whenever possible." OFF)
+
+if (ENABLE_STATIC)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static")
+endif()
+
+# CMake believes that Objective C is a flavor of C++, not C,
+# and uses g++ compiler for .m files. Since talking CMake out
+# of this idea is difficult, and since gcc or g++ are only
+# front-ends to the language-specific compiler specified in
+# -x option, simply use CXX flags to build Objective C files.
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_C_FLAGS}")
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+
 add_subdirectory(third_party)
 add_subdirectory(cfg)
 add_subdirectory(connector)
@@ -177,7 +196,7 @@ add_subdirectory(core)
 add_subdirectory(mod)
 add_subdirectory(test)
 
-install (FILES README LICENSE doc/silverbox-protocol.txt
+install (FILES README LICENSE doc/box-protocol.txt
          DESTINATION doc)
 
 include (cmake/tarantool_cpack.cmake)
@@ -202,4 +221,5 @@ message (STATUS "ENABLE_GCOV: ${ENABLE_GCOV}")
 message (STATUS "ENABLE_TRACE: ${ENABLE_TRACE}")
 message (STATUS "ENABLE_BACKTRACE: ${ENABLE_BACKTRACE}")
 message (STATUS "Backtrace is with symbol resolve: ${HAVE_BFD}")
+message (STATUS "ENABLE_STATIC: ${ENABLE_STATIC}")
 message (STATUS "")

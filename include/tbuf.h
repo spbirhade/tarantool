@@ -1,3 +1,5 @@
+#ifndef TARANTOOL_TBUF_H_INCLUDED
+#define TARANTOOL_TBUF_H_INCLUDED
 /*
  * Copyright (C) 2010 Mail.RU
  * Copyright (C) 2010 Yuriy Vostrikov
@@ -23,9 +25,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#ifndef TARANTOOL_TBUF_H
-#define TARANTOOL_TBUF_H
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -76,4 +75,4 @@ char *tbuf_to_hex(const struct tbuf *x);
 int luaT_opentbuf(struct lua_State *L);
 struct tbuf *luaT_checktbuf(struct lua_State *L, int idx);
 int luaT_pushtbuf(struct lua_State *L, struct tbuf *orig);
-#endif
+#endif /* TARANTOOL_TBUF_H_INCLUDED */

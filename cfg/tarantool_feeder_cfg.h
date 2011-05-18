@@ -62,6 +62,9 @@ typedef struct tarantool_cfg {
 	/* network io readahead */
 	int32_t	readahead;
 
+	/* path for search scripts */
+	char*	lua_path;
+
 	/*
 	 * feed WAL to remote replicas
 	 * feeder accepts it's clients on wal_feeder_bind_ipaddr:wal_feeder_bind_port

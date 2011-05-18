@@ -188,7 +188,7 @@ class TestSuite:
     self.ini = {}
 
     self.ini["core"] = "tarantool"
-    self.ini["module"] = "silverbox"
+    self.ini["module"] = "box"
 
     if os.access(suite_path, os.F_OK) == False:
       raise RuntimeError("Suite \"" + suite_path +\

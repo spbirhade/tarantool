@@ -27,13 +27,18 @@ parser sql:
     token SET:        'set'
     token OR:         'or'
     token LIMIT:      'limit'
+    token OVER:       'over'
+    token LUA_CALL:   'lua_call'
+    token LUA_PROC:   '[a-z_][a-z0-9_]*'
     token END:        '\\s*$'
 
-    rule sql:         (insert {{ stmt = insert }} |
-                      update {{ stmt = update }} |
-                      delete {{ stmt = delete }} |
-                      select {{ stmt = select }} |
-                      ping {{ stmt = ping }}) END {{ return stmt }}
+    rule sql:         (insert {{ stmt = insert }} 
+                      |update {{ stmt = update }}
+                      |delete {{ stmt = delete }}
+                      |select {{ stmt = select }}
+                      |ping {{ stmt = ping }}
+                      |lua_call {{ stmt = lua_call }}
+                      ) END {{ return stmt }}
                       
     rule insert:      INSERT [INTO] ident VALUES value_list
                       {{ return sql_ast.StatementInsert(ident, value_list) }}
@@ -45,6 +50,8 @@ parser sql:
                       {{ return sql_ast.StatementSelect(ident, opt_where, opt_limit) }}
     rule ping:        PING
                       {{ return sql_ast.StatementPing() }}
+    rule lua_call: 	  LUA_CALL lua_procname arg_list OVER ident
+                      {{ return sql_ast.StatementLuaCall(ident, lua_procname, arg_list) }}
     rule predicate:   ident '=' constant
                       {{ return (ident, constant) }}
     rule opt_simple_where:   {{ return None }}
@@ -61,12 +68,17 @@ parser sql:
     rule value_list:  '\(' expr {{ value_list = [expr] }}
                           [("," expr {{ value_list.append(expr) }} )+]
                       '\)' {{ return value_list }}
+    rule arg_list:    '\(' {{ value_list = [] }}
+                           [ expr {{ value_list.append(expr) }}
+                             [("," expr {{ value_list.append(expr) }} )+]]
+                      '\)' {{ return value_list }}    
     rule update_list: predicate {{ update_list = [predicate] }}
                       [(',' predicate {{ update_list.append(predicate) }})+]
                       {{ return update_list }}
     rule expr:        constant {{ return constant }}
     rule constant:    NUM {{ return int(NUM) }} | STR {{ return STR[1:-1] }}
     rule ident:       ID {{ return int(object_no_re.sub("", ID)) }}
+    rule lua_procname:LUA_PROC {{ return LUA_PROC }}
 %%
 
 # SQL is case-insensitive, but in yapps it's not possible to

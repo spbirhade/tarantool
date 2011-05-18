@@ -32,6 +32,9 @@ class sqlScanner(runtime.Scanner):
         ('SET', re.compile('set')),
         ('OR', re.compile('or')),
         ('LIMIT', re.compile('limit')),
+        ('OVER', re.compile('over')),
+        ('LUA_CALL', re.compile('lua_call')),
+        ('LUA_PROC', re.compile('[a-z_][a-z0-9_]*')),
         ('END', re.compile('\\s*$')),
     ]
     def __init__(self, str,*args,**kw):
@@ -41,7 +44,7 @@ class sql(runtime.Parser):
     Context = runtime.Context
     def sql(self, _parent=None):
         _context = self.Context(_parent, self._scanner, 'sql', [])
-        _token = self._peek('INSERT', 'UPDATE', 'DELETE', 'SELECT', 'PING', context=_context)
+        _token = self._peek('INSERT', 'UPDATE', 'DELETE', 'SELECT', 'PING', 'LUA_CALL', context=_context)
         if _token == 'INSERT':
             insert = self.insert(_context)
             stmt = insert
@@ -54,9 +57,12 @@ class sql(runtime.Parser):
         elif _token == 'SELECT':
             select = self.select(_context)
             stmt = select
-        else: # == 'PING'
+        elif _token == 'PING':
             ping = self.ping(_context)
             stmt = ping
+        else: # == 'LUA_CALL'
+            lua_call = self.lua_call(_context)
+            stmt = lua_call
         END = self._scan('END', context=_context)
         return stmt
 
@@ -101,6 +107,15 @@ class sql(runtime.Parser):
         _context = self.Context(_parent, self._scanner, 'ping', [])
         PING = self._scan('PING', context=_context)
         return sql_ast.StatementPing()
+
+    def lua_call(self, _parent=None):
+        _context = self.Context(_parent, self._scanner, 'lua_call', [])
+        LUA_CALL = self._scan('LUA_CALL', context=_context)
+        lua_procname = self.lua_procname(_context)
+        arg_list = self.arg_list(_context)
+        OVER = self._scan('OVER', context=_context)
+        ident = self.ident(_context)
+        return sql_ast.StatementLuaCall(ident, lua_procname, arg_list)
 
     def predicate(self, _parent=None):
         _context = self.Context(_parent, self._scanner, 'predicate', [])
@@ -165,6 +180,22 @@ class sql(runtime.Parser):
         self._scan("'\\)'", context=_context)
         return value_list
 
+    def arg_list(self, _parent=None):
+        _context = self.Context(_parent, self._scanner, 'arg_list', [])
+        self._scan("'\\('", context=_context)
+        value_list = []
+        if self._peek("'\\)'", '","', 'NUM', 'STR', context=_context) in ['NUM', 'STR']:
+            expr = self.expr(_context)
+            value_list.append(expr)
+            if self._peek('","', "'\\)'", context=_context) == '","':
+                while 1:
+                    self._scan('","', context=_context)
+                    expr = self.expr(_context)
+                    value_list.append(expr)
+                    if self._peek('","', "'\\)'", context=_context) != '","': break
+        self._scan("'\\)'", context=_context)
+        return value_list
+
     def update_list(self, _parent=None):
         _context = self.Context(_parent, self._scanner, 'update_list', [])
         predicate = self.predicate(_context)
@@ -196,6 +227,11 @@ class sql(runtime.Parser):
         _context = self.Context(_parent, self._scanner, 'ident', [])
         ID = self._scan('ID', context=_context)
         return int(object_no_re.sub("", ID))
+
+    def lua_procname(self, _parent=None):
+        _context = self.Context(_parent, self._scanner, 'lua_procname', [])
+        LUA_PROC = self._scan('LUA_PROC', context=_context)
+        return LUA_PROC
 
 
 def parse(rule, text):

@@ -1,11 +1,12 @@
 show stat
 ---
 statistics:
-  INSERT:        { rps:  0    , total:  0           }
-  SELECT_LIMIT:  { rps:  0    , total:  0           }
-  SELECT:        { rps:  0    , total:  0           }
-  UPDATE_FIELDS: { rps:  0    , total:  0           }
   DELETE:        { rps:  0    , total:  0           }
+  EXEC_LUA:      { rps:  0    , total:  0           }
+  INSERT:        { rps:  0    , total:  0           }
+  SELECT:        { rps:  0    , total:  0           }
+  SELECT_LIMIT:  { rps:  0    , total:  0           }
+  UPDATE_FIELDS: { rps:  0    , total:  0           }
 ...
 help
 ---
@@ -21,6 +22,7 @@ available commands:
  - save coredump
  - save snapshot
  - exec module command
+ - exec lua command
  - reload configuration
 ...
 show configuration
@@ -40,6 +42,7 @@ configuration:
   io_collect_interval: "0"
   backlog: "1024"
   readahead: "16320"
+  lua_path: "lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua"
   snap_dir: "."
   wal_dir: "."
   primary_port: "33013"
@@ -72,11 +75,12 @@ configuration:
 show stat
 ---
 statistics:
-  INSERT:        { rps:  0    , total:  0           }
-  SELECT_LIMIT:  { rps:  0    , total:  0           }
-  SELECT:        { rps:  0    , total:  0           }
-  UPDATE_FIELDS: { rps:  0    , total:  0           }
   DELETE:        { rps:  0    , total:  0           }
+  EXEC_LUA:      { rps:  0    , total:  0           }
+  INSERT:        { rps:  0    , total:  0           }
+  SELECT:        { rps:  0    , total:  0           }
+  SELECT_LIMIT:  { rps:  0    , total:  0           }
+  UPDATE_FIELDS: { rps:  0    , total:  0           }
 ...
 save coredump
 ---

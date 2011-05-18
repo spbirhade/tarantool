@@ -1,6 +1,6 @@
-tarantool_silverbox --help
+tarantool_box --help
 Tarantool -- an efficient in-memory data store.
-Usage: tarantool_silverbox [OPTIONS]
+Usage: tarantool_box [OPTIONS]
 
       --cfg-get=KEY       return a value from configuration file described by
                           KEY
@@ -18,9 +18,9 @@ Usage: tarantool_silverbox [OPTIONS]
 Please visit project home page at http://launchpad.net/tarantool
 to see online documentation, submit bugs or contribute a patch.
 
-tarantool_silverbox -h
+tarantool_box -h
 Tarantool -- an efficient in-memory data store.
-Usage: tarantool_silverbox [OPTIONS]
+Usage: tarantool_box [OPTIONS]
 
       --cfg-get=KEY       return a value from configuration file described by
                           KEY
@@ -38,31 +38,31 @@ Usage: tarantool_silverbox [OPTIONS]
 Please visit project home page at http://launchpad.net/tarantool
 to see online documentation, submit bugs or contribute a patch.
 
-tarantool_silverbox -Z
-tarantool_silverbox: -Z: unknown option
+tarantool_box -Z
+tarantool_box: -Z: unknown option
 
-tarantool_silverbox --no-such-option
-tarantool_silverbox: --no-such-option: unknown option
+tarantool_box --no-such-option
+tarantool_box: --no-such-option: unknown option
 
-tarantool_silverbox --version --no-such-option
-tarantool_silverbox: --no-such-option: unknown option
+tarantool_box --version --no-such-option
+tarantool_box: --no-such-option: unknown option
 
-tarantool_silverbox --config
-tarantool_silverbox: --config: option requires an option argument
+tarantool_box --config
+tarantool_box: --config: option requires an option argument
 
-tarantool_silverbox -c
-tarantool_silverbox: -c: option requires an option argument
+tarantool_box -c
+tarantool_box: -c: option requires an option argument
 
-tarantool_silverbox --config tarantool.cfg
-tarantool_silverbox: the daemon is already running
+tarantool_box --config tarantool.cfg
+tarantool_box: the daemon is already running
 
-tarantool_silverbox --daemonize
-tarantool_silverbox: the daemon is already running
+tarantool_box --daemonize
+tarantool_box: the daemon is already running
 
-tarantool_silverbox --version
+tarantool_box --version
 1.minor.patch-<rev>-<commit>
 
-tarantool_silverbox -V
+tarantool_box -V
 1.minor.patch-<rev>-<commit>
 
 #
@@ -74,9 +74,11 @@ tarantool_silverbox -V
 # Verify that this is not the case, and snap_dir and xlog_dir
 # can be relative to work_dir.
 
-tarantool_silverbox --config=bug726778.cfg --init-storage
-tarantool_silverbox: namespace 0 successfully configured
-tarantool_silverbox: creating `snapshots/00000000000000000001.snap.inprogress'
-tarantool_silverbox: saving snapshot `snapshots/00000000000000000001.snap'
-tarantool_silverbox: done
+tarantool_box --config=bug726778.cfg --init-storage
+tarantool_box: Lua prelude initialized.
+tarantool_box: namespace 0 successfully configured
+tarantool_box: MoonBox initialized.
+tarantool_box: creating `snapshots/00000000000000000001.snap.inprogress'
+tarantool_box: saving snapshot `snapshots/00000000000000000001.snap'
+tarantool_box: done
 

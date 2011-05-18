@@ -60,8 +60,8 @@ class Options:
         dest = 'modules',
         metavar = "module",
         nargs="*",
-        default = ["silverbox"],
-        help = "List of modules to test. Default: \"silverbox\"")
+        default = ["box"],
+        help = "List of modules to test. Default: \"box\"")
 
     parser.add_argument(
         "--suite",

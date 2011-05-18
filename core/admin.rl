@@ -266,7 +266,7 @@ admin_handler(void *data __attribute__((unused)))
 }
 
 int
-admin_init()
+admin_init(void)
 {
 	if (fiber_server(tcp_server, cfg.admin_port, admin_handler, NULL, NULL) == NULL) {
 		say_syserror("can't bind to %d", cfg.admin_port);

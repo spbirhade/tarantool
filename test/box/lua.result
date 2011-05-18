@@ -1,0 +1,35 @@
+ping
+ok
+---
+insert into t0 values (0, 'I am a tuple 0')
+Insert OK, 1 row affected
+insert into t0 values (1, 'I am a tuple 1')
+Insert OK, 1 row affected
+insert into t0 values (2, 'I am a tuple 2')
+Insert OK, 1 row affected
+insert into t0 values (3, 'I am a tuple 3')
+Insert OK, 1 row affected
+insert into t0 values (4, 'I am a tuple 4')
+Insert OK, 1 row affected
+insert into t0 values (5, 'I am a tuple 5')
+Insert OK, 1 row affected
+insert into t0 values (6, 'I am a tuple 6')
+Insert OK, 1 row affected
+insert into t0 values (7, 'I am a tuple 7')
+Insert OK, 1 row affected
+insert into t0 values (8, 'I am a tuple 8')
+Insert OK, 1 row affected
+insert into t0 values (9, 'I am a tuple 9')
+Insert OK, 1 row affected
+lua_call get_all_tuples() over t0
+Found 10 tuples:
+[0, 'I am a tuple 0']
+[1, 'I am a tuple 1']
+[2, 'I am a tuple 2']
+[3, 'I am a tuple 3']
+[4, 'I am a tuple 4']
+[5, 'I am a tuple 5']
+[6, 'I am a tuple 6']
+[7, 'I am a tuple 7']
+[8, 'I am a tuple 8']
+[9, 'I am a tuple 9']

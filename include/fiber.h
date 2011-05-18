@@ -1,3 +1,5 @@
+#ifndef TARANTOOL_FIBER_H_INCLUDED
+#define TARANTOOL_FIBER_H_INCLUDED
 /*
  * Copyright (C) 2010 Mail.RU
  * Copyright (C) 2010 Yuriy Vostrikov
@@ -24,27 +26,31 @@
  * SUCH DAMAGE.
  */
 
-#ifndef TARANTOOL_FIBER_H
-#define TARANTOOL_FIBER_H
+#include "config.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/uio.h>
-#include <setjmp.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <tarantool_ev.h>
-#include <palloc.h>
 #include <tbuf.h>
-#include <say.h>
 #include <coro.h>
 #include <util.h>
+#include "third_party/queue.h"
 
 #include <third_party/luajit/src/lua.h>
 #include <third_party/luajit/src/lauxlib.h>
 
+#include <exceptions.h>
+
 #define FIBER_EXIT -1
+#define FIBER_READING_INBOX 0x1
+#define FIBER_RAISE	    0x2
+
+@interface tnt_FiberException: tnt_Exception
+@end
 
 struct msg {
 	uint32_t sender_fid;
@@ -58,7 +64,7 @@ struct ring {
 
 struct fiber {
 	ev_io io;
-#ifdef BACKTRACE
+#ifdef ENABLE_BACKTRACE
 	void *last_stack_frame;
 #endif
 	int csw;
@@ -75,15 +81,10 @@ struct fiber {
 	struct tbuf *rbuf;
 	struct tbuf *cleanup;
 
-	 SLIST_ENTRY(fiber) link, zombie_link;
+	SLIST_ENTRY(fiber) link, zombie_link;
 
 	struct ring *inbox;
-
-	jmp_buf exc;
-	const char *errstr;
-
 	lua_State *L;
-
 	const char *name;
 	void (*f) (void *);
 	void *f_data;
@@ -95,7 +96,8 @@ struct fiber {
 	u64 cookie;
 	bool has_peer;
 	char peer_name[32];
-	bool reading_inbox;
+
+	u32 flags;
 };
 
 SLIST_HEAD(, fiber) fibers, zombie_fibers;
@@ -121,13 +123,7 @@ void wait_for(int events);
 void wait_for_child(pid_t pid);
 void unwait(int events);
 void yield(void);
-void raise_(int);
-#define raise(v, err)							\
-	({								\
-		say_debug("raise 0x%x/%s at %s:%i", v, err, __FILE__, __LINE__); \
-		fiber->errstr = (err);					\
-		longjmp(fiber->exc, (v));				\
-	})
+void fiber_destroy_all();
 
 struct msg *read_inbox(void);
 int fiber_bread(struct tbuf *, size_t v);
@@ -167,7 +163,7 @@ ssize_t fiber_flush_output(void);
 void fiber_cleanup(void);
 void fiber_gc(void);
 void fiber_call(struct fiber *callee);
-void fiber_raise(struct fiber *callee, jmp_buf exc, int value);
+void fiber_raise(struct fiber *callee);
 int fiber_connect(struct sockaddr_in *addr);
 void fiber_sleep(ev_tstamp s);
 void fiber_info(struct tbuf *out);
@@ -185,6 +181,5 @@ struct child *spawn_child(const char *name,
 			  int inbox_size,
 			  struct tbuf *(*handler) (void *, struct tbuf *), void *state);
 
-
 int luaT_openfiber(struct lua_State *L);
-#endif
+#endif /* TARANTOOL_FIBER_H_INCLUDED */
