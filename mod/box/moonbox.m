@@ -322,6 +322,13 @@ static const struct luaL_reg boxlib [] = {
 void
 luaT_openbox(struct lua_State *L)
 {
+        lua_getglobal(L, "package");
+        lua_getfield(L, -1, "path");
+        lua_pushliteral(L, ";mod/box/lua/?.lua");
+        lua_concat(L, 2);
+        lua_setfield(L, -2, "path");
+        lua_pop(L, 1);
+
         lua_getglobal(L, "require");
         lua_pushliteral(L, "box_prelude");
 	if (lua_pcall(L, 1, 0, 0) != 0)

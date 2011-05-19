@@ -44,4 +44,4 @@ readahead=16320
 
 
 # path for search scripts
-lua_path = "lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua", ro
+lua_path = "lua/?.lua;scripts/lua/?.lua", ro

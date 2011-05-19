@@ -41,7 +41,7 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->io_collect_interval = 0;
 	c->backlog = 1024;
 	c->readahead = 16320;
-	c->lua_path = strdup("lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua");
+	c->lua_path = strdup("lua/?.lua;scripts/lua/?.lua");
 	if (c->lua_path == NULL) return CNF_NOMEMORY;
 	c->snap_dir = strdup(".");
 	if (c->snap_dir == NULL) return CNF_NOMEMORY;
