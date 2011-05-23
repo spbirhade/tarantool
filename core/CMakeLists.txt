@@ -82,9 +82,9 @@ if (ENABLE_GCOV)
   set (common_libraries ${common_libraries} gcov)
 endif()
 
-if (ENABLE_SSL)
-  set (common_libraries ${common_libraries} ${OPENSSL_LIBRARIES})
-endif()
+#if (ENABLE_SSL)
+  #set (common_libraries ${common_libraries} ${OPENSSL_LIBRARIES})
+#endif()
 
 if (ENABLE_SASL)
   set (common_libraries ${common_libraries} gsasl)

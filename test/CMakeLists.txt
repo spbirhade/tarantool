@@ -1,11 +1,12 @@
 add_custom_target(test
-    COMMAND python ${PROJECT_SOURCE_DIR}/test/test-run.py --builddir=${PROJECT_BINARY_DIR} --vardir=${PROJECT_BINARY_DIR}/test/var
-    )
+    COMMAND python ${PROJECT_SOURCE_DIR}/test/test-run.py --builddir=${PROJECT_BINARY_DIR} --vardir=${PROJECT_BINARY_DIR}/test/var)
 
-add_executable(box/protocol
-  ${CMAKE_SOURCE_DIR}/test/box/protocol.c)
+#add_executable(box/protocol
+  #${CMAKE_SOURCE_DIR}/test/box/protocol.c)
 
-target_link_libraries (box/protocol connector_c)
+#target_link_libraries (box/protocol connector_c)
+
+tarantool_client("box/protocol" ${CMAKE_SOURCE_DIR}/test/box/protocol.c)
 
 install (PROGRAMS tarantool DESTINATION bin)
 install (DIRECTORY lib DESTINATION bin)

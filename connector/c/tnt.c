@@ -90,12 +90,13 @@ tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv)
 }
 
 int
-tnt_set_auth(tnt_t * t, tnt_auth_t auth,
+tnt_set_auth(tnt_t * t, tnt_auth_t auth, char * mech,
 	char * id,
 	unsigned char * key, int key_size)
 {
 	t->auth_type = auth;
 	t->auth_id_size = strlen(id);
+	t->auth_mech = NULL;
 
 	switch (t->auth_type) {
 
@@ -113,6 +114,15 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 				return -1;
 			}
 			break;
+
+		case TNT_AUTH_SASL:
+			if (mech == NULL) {
+				t->error = TNT_EBADVAL;
+				return -1;
+			}
+
+			t->auth_mech = strdup(mech);
+			break;
 	}
 
 	t->auth_id = strdup(id);
@@ -123,7 +133,7 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	}
 
 	t->auth_key_size = key_size;
-	t->auth_key = malloc(t->auth_key_size);
+	t->auth_key = malloc(t->auth_key_size + 1);
 
 	if (t->auth_key == NULL) {
 
@@ -135,6 +145,8 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth,
 	}
 
 	memcpy(t->auth_key, key, key_size);
+
+	t->auth_key[t->auth_key_size] = 0;
 	return 0;
 }
 
@@ -148,6 +160,9 @@ tnt_free(tnt_t * t)
 
 	if (t->auth_key)
 		free(t->auth_key);
+
+	if (t->auth_mech)
+		free(t->auth_mech);
 
 	free(t);
 }

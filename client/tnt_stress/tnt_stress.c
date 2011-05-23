@@ -161,6 +161,7 @@ main(int argc, char * argv[])
 	char * id = "test";
 	char * key = "1234567812345678";
 	int key_size = 16;
+	char * mech = "SCRAM-SHA-1";
 
 	int count = 1000;
 	int rbuf = 16384;
@@ -169,12 +170,15 @@ main(int argc, char * argv[])
 	int big = 0;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "t:i:k:a:p:c:r:s:hb")) != -1 ) {
+	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:r:s:hb")) != -1 ) {
 		switch (opt) {
 		case 't':
 
 				if (!strcmp(optarg, "chap"))
 					auth = TNT_AUTH_CHAP;
+				else
+				if (!strcmp(optarg, "sasl"))
+					auth = TNT_AUTH_SASL;
 				else
 					auth = TNT_AUTH_NONE;
 				break;
@@ -186,6 +190,10 @@ main(int argc, char * argv[])
 			case 'k':
 				key = optarg;
 				key_size = strlen(optarg);
+				break;
+
+			case 'm':
+				mech = optarg;
 				break;
 
 			case 'a':
@@ -216,9 +224,10 @@ main(int argc, char * argv[])
 			default:
 				printf("tarantool stress-suite.\n\n");
 
-				printf("stress: [-t auth  = chap]\n"
+				printf("stress: [-t auth  = chap, sasl]\n"
 				       "        [-i id    = test]\n"
 				       "        [-k key   = 1234567812345678]\n"
+				       "        [-m mech  = SCRAM-SHA-1]\n"
 			 	       "        [-a host  = localhost]\n"
 				       "        [-p port  = 15312]\n"
 				       "        [-c count = 1000]\n"
@@ -249,7 +258,7 @@ main(int argc, char * argv[])
 
 	tnt_set_tmout(t, 8, 1, 1);
 
-	if (tnt_set_auth(t, auth,
+	if (tnt_set_auth(t, auth, mech,
 			id,
 			(unsigned char*)key, key_size) == -1) {
 

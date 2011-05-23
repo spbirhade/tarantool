@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -42,84 +44,9 @@
 #include <tnt_cmac.h>
 #include <tnt.h>
 #include <tnt_io.h>
-#include <tnt_auth_chap.h>
 #include <tnt_auth.h>
-
-static void
-tnt_auth_hash(tnt_t * t, tnt_auth_chap_hdr_server1_t * hs1,
-	tnt_auth_chap_hdr_client_t * hc)
-{
-	tnt_aes_cmac_ctx cmac;
-	tnt_aes_cmac_init(&cmac);
-
-	tnt_aes_cmac_setkey(&cmac, t->auth_key);
-	tnt_aes_cmac_update(&cmac, (u_int8_t*)hs1->token, sizeof(hs1->token));
-
-	tnt_aes_cmac_final((u_int8_t*)hc->hash, &cmac);
-}
-
-static tnt_error_t
-tnt_auth_chap(tnt_t * t)
-{
-	/* Stage1. Recv server Token. */
-	tnt_auth_chap_hdr_server1_t hs1;
-
-	tnt_error_t r = tnt_io_recv(t,
-		(void*)&hs1, sizeof(tnt_auth_chap_hdr_server1_t));
-
-	if (r != TNT_EOK)
-		return r;
-
-	if (memcmp(hs1.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE))
-		return TNT_EPROTO;
-
-	/* Stage2. Creating Hash by signing Token. */
-	tnt_auth_chap_hdr_client_t hc;
-
-	memcpy(hc.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE);
-
-	switch (t->proto) {
-
-		case TNT_PROTO_ADMIN:
-			hc.proto = TNT_AUTH_CHAP_PROTO_ADMIN;
-			break;
-		case TNT_PROTO_RW:
-			hc.proto = TNT_AUTH_CHAP_PROTO_RW;
-			break;
-		case TNT_PROTO_RO:
-			hc.proto = TNT_AUTH_CHAP_PROTO_RO;
-			break;
-		case TNT_PROTO_FEEDER:
-			hc.proto = TNT_AUTH_CHAP_PROTO_FEEDER;
-			break;
-	}
-
-	memset(hc.id, 0, sizeof(hc.id));
-	memcpy(hc.id, t->auth_id, t->auth_id_size);
-
-	tnt_auth_hash(t, &hs1, &hc);
-
-	r = tnt_io_send(t, (void*)&hc, sizeof(tnt_auth_chap_hdr_client_t));
-
-	if (r != TNT_EOK)
-		return r;
-
-	/* Stage3. Check response. */
-	tnt_auth_chap_hdr_server2_t hs2;
-
-	r = tnt_io_recv(t, (void*)&hs2, sizeof(tnt_auth_chap_hdr_server2_t));
-
-	if (r != TNT_EOK)
-		return r;
-
-	if (memcmp(hs2.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE))
-		return TNT_EPROTO;
-
-	if (hs2.resp == TNT_AUTH_CHAP_RESP_OK)
-		return TNT_EOK;
-
-	return TNT_EAUTH;
-}
+#include <tnt_auth_chap.h>
+#include <tnt_auth_sasl.h>
 
 tnt_error_t
 tnt_auth(tnt_t * t)
@@ -131,6 +58,13 @@ tnt_auth(tnt_t * t)
 
 		case TNT_AUTH_CHAP:
 			return tnt_auth_chap(t);
+
+		case TNT_AUTH_SASL:
+#if defined(HAVE_GSASL)
+			return tnt_auth_sasl(t);
+#else
+			return TNT_EFAIL;
+#endif
 	}
 
 	return TNT_EOK;

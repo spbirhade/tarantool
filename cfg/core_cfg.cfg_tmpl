@@ -48,6 +48,9 @@ plug_dir="../lib/tarantool", ro
 # authentication mechanism to use
 auth="none", ro
 
+# SASL mechanism to use
+auth_sasl="none", ro
+
 # users list
 users = [
   {

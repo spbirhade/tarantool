@@ -18,7 +18,7 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	if (tnt_set_auth(t, TNT_AUTH_CHAP,
+	if (tnt_set_auth(t, TNT_AUTH_CHAP, NULL,
 			"test",
 			(unsigned char*)"1234567812345678", 16) == -1) {
 

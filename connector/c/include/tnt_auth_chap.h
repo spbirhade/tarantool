@@ -65,4 +65,7 @@ typedef struct tnt_auth_chap_hdr_client_t {
 
 } tnt_auth_chap_hdr_client_t;
 
+tnt_error_t
+tnt_auth_chap(tnt_t * t);
+
 #endif

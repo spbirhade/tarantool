@@ -69,7 +69,7 @@ user_add(char * id, unsigned char * key, int key_size)
 		return NULL;
 
 	u->key_size = key_size;
-	u->key = malloc(u->key_size);
+	u->key = malloc(u->key_size + 1);
 
 	if (u->key == NULL) {
 
@@ -78,6 +78,7 @@ user_add(char * id, unsigned char * key, int key_size)
 	}
 
 	memcpy(u->key, key, u->key_size);
+	u->key[u->key_size] = 0;
 
 	SLIST_INSERT_HEAD(&users.list, u, next);
 	users.count++;

@@ -1,4 +1,5 @@
-add_library(connector_c
+
+set (connector_c_sources
 	tnt.c
 	tnt_mem.c
 	tnt_io.c
@@ -7,6 +8,7 @@ add_library(connector_c
 	tnt_aes.c
 	tnt_cmac.c
 	tnt_auth.c
+	tnt_auth_chap.c
     tnt_leb128.c
 	tnt_tuple.c
 	tnt_insert.c
@@ -16,3 +18,10 @@ add_library(connector_c
 	tnt_ping.c
 	tnt_recv.c
 	tnt_map.c)
+
+if (ENABLE_SASL)
+	set (connector_c_sources ${connector_c_sources} 
+		tnt_auth_sasl.c)
+endif()
+
+add_library(connector_c ${connector_c_sources})

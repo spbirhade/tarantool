@@ -42,6 +42,8 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
+#cmakedefine HAVE_GSASL 1
+
 /*
  * Set if this is a GNU system and libc has __libc_stack_end.
  */

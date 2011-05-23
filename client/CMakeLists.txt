@@ -1,19 +1,48 @@
 
 # function to build tarantool clients that use connector/c
+# without install
+
 function(tarantool_client client_name)
-  set (client_sources ${ARGV})
-  list(REMOVE_ITEM client_sources ${client_name})
+	set (client_sources ${ARGV})
+	list(REMOVE_ITEM client_sources ${client_name})
 
-  add_executable(${client_name} ${client_sources})
+	add_executable(${client_name} ${client_sources})
 
-  set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
+	set (client_libs connector_c)
+
+	if (ENABLE_SASL)
+		set (client_libs ${client_libs} gsasl)
+	endif()
+
+	set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
 	"${core_cflags}")
 
-  target_link_libraries (${client_name} connector_c)
+	target_link_libraries (${client_name} ${client_libs})
+endfunction()
 
-  install (TARGETS ${client_name} DESTINATION bin)
+# function to build tarantool clients with installation
+#
+
+function(tarantool_client_install client_name)
+	set (client_sources ${ARGV})
+	list(REMOVE_ITEM client_sources ${client_name})
+
+	add_executable(${client_name} ${client_sources})
+
+	set (client_libs connector_c)
+
+	if (ENABLE_SASL)
+		set (client_libs ${client_libs} gsasl)
+	endif()
+
+	set_target_properties(${client_name} PROPERTIES COMPILE_FLAGS
+	"${core_cflags}")
+
+	target_link_libraries (${client_name} ${client_libs})
+
+	install (TARGETS ${client_name} DESTINATION bin)
 endfunction()
 
 foreach (client ${TARANTOOL_CLIENTS})
-  add_subdirectory(${client})
+	add_subdirectory(${client})
 endforeach()

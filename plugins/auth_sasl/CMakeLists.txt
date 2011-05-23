@@ -1,1 +1,4 @@
-tarantool_plug("auth_ssl" auth_ssl.m)
+
+if (ENABLE_SASL)
+	tarantool_plug("auth_sasl" auth_sasl.m)
+endif()

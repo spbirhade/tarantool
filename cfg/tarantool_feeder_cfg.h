@@ -75,6 +75,9 @@ typedef struct tarantool_cfg {
 	/* authentication mechanism to use */
 	char*	auth;
 
+	/* SASL mechanism to use */
+	char*	auth_sasl;
+
 	/* users list */
 	tarantool_cfg_users**	users;
 

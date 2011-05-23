@@ -1,1 +1,1 @@
-tarantool_client("tnt" tnt.c)
+tarantool_client_install("tnt" tnt.c)

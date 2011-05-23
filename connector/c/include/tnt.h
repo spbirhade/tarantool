@@ -31,7 +31,8 @@
 typedef enum {
 
 	TNT_AUTH_NONE,
-	TNT_AUTH_CHAP
+	TNT_AUTH_CHAP,
+	TNT_AUTH_SASL
 
 } tnt_auth_t;
 
@@ -69,6 +70,7 @@ typedef struct {
 	int             auth_id_size;
 	unsigned char * auth_key;
 	int             auth_key_size;
+	char          * auth_mech;
 
 	tnt_error_t     error;
 	int             error_errno;
@@ -86,7 +88,7 @@ void
 tnt_set_tmout(tnt_t * t, int tmout_connect, int tmout_snd, int tmout_rcv);
 
 int
-tnt_set_auth(tnt_t * t, tnt_auth_t auth,
+tnt_set_auth(tnt_t * t, tnt_auth_t auth, char * mech,
 	char * id,
 	unsigned char * key, int key_size);
 

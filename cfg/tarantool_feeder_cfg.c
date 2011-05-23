@@ -45,6 +45,8 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	if (c->plug_dir == NULL) return CNF_NOMEMORY;
 	c->auth = strdup("none");
 	if (c->auth == NULL) return CNF_NOMEMORY;
+	c->auth_sasl = strdup("none");
+	if (c->auth_sasl == NULL) return CNF_NOMEMORY;
 	c->users = NULL;
 	c->wal_feeder_bind_ipaddr = NULL;
 	c->wal_feeder_bind_port = 0;
@@ -109,6 +111,9 @@ static NameAtom _name__plug_dir[] = {
 };
 static NameAtom _name__auth[] = {
 	{ "auth", -1, NULL }
+};
+static NameAtom _name__auth_sasl[] = {
+	{ "auth_sasl", -1, NULL }
 };
 static NameAtom _name__users[] = {
 	{ "users", -1, NULL }
@@ -361,6 +366,17 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 		if (opt->paramValue.stringval && c->auth == NULL)
 			return CNF_NOMEMORY;
 	}
+	else if ( cmpNameAtoms( opt->name, _name__auth_sasl) ) {
+		if (opt->paramType != stringType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->auth_sasl == NULL) || strcmp(opt->paramValue.stringval, c->auth_sasl) != 0))
+			return CNF_RDONLY;
+		c->auth_sasl = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
+		if (opt->paramValue.stringval && c->auth_sasl == NULL)
+			return CNF_NOMEMORY;
+	}
 	else if ( cmpNameAtoms( opt->name, _name__users) ) {
 		if (opt->paramType != arrayType )
 			return CNF_WRONGTYPE;
@@ -564,6 +580,7 @@ typedef enum IteratorState {
 	S_name__readahead,
 	S_name__plug_dir,
 	S_name__auth,
+	S_name__auth_sasl,
 	S_name__users,
 	S_name__users__id,
 	S_name__users__key,
@@ -764,6 +781,16 @@ again:
 				return NULL;
 			}
 			snprintf(buf, PRINTBUFLEN-1, "auth");
+			i->state = S_name__auth_sasl;
+			return buf;
+		case S_name__auth_sasl:
+			*v = (c->auth_sasl) ? strdup(c->auth_sasl) : NULL;
+			if (*v == NULL && c->auth_sasl) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			snprintf(buf, PRINTBUFLEN-1, "auth_sasl");
 			i->state = S_name__users;
 			return buf;
 		case S_name__users:
@@ -940,6 +967,9 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 	dst->auth = src->auth == NULL ? NULL : strdup(src->auth);
 	if (src->auth != NULL && dst->auth == NULL)
 		return CNF_NOMEMORY;
+	dst->auth_sasl = src->auth_sasl == NULL ? NULL : strdup(src->auth_sasl);
+	if (src->auth_sasl != NULL && dst->auth_sasl == NULL)
+		return CNF_NOMEMORY;
 
 	dst->users = NULL;
 	if (src->users != NULL) {
@@ -991,6 +1021,8 @@ destroy_tarantool_cfg(tarantool_cfg* c) {
 		free(c->plug_dir);
 	if (c->auth != NULL)
 		free(c->auth);
+	if (c->auth_sasl != NULL)
+		free(c->auth_sasl);
 
 	if (c->users != NULL) {
 		i->idx_name__users = 0;
@@ -1115,6 +1147,11 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 }
 	if (confetti_strcmp(c1->auth, c2->auth) != 0) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->auth");
+
+		return diff;
+}
+	if (confetti_strcmp(c1->auth_sasl, c2->auth_sasl) != 0) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->auth_sasl");
 
 		return diff;
 }
