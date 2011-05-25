@@ -119,23 +119,27 @@ stress_t stress_small[] =
 };
 
 static void
-stress_run(tnt_t * t, stress_t * list, int count)
+stress_run(tnt_t * t, stress_t * list, int color, int count, int reps)
 {
-	stress_t * s;
-	stress_stat_t stat;
+	stress_stat_t * stats = malloc(sizeof(stress_stat_t) * reps);
+
+	if (stats == NULL)
+		return;
+
 	int i;
 
 	for (i = 0 ; list[i].group != 2 ; i++) {
 
-		s = &list[i];
+		stress_t * s = &list[i];
 
 		if (s->group) {
 			
-			printf("[%s]\n", s->name);
+			if (color)
+				printf("[\033[22;33m%s\033[0m]\n", s->name);
+			else
+				printf("%s\n", s->name);
 			continue;
 		}
-
-		memset(&stat, 0, sizeof(stat));
 
 		if (s->name) 
 			printf("  -> %s (bsize: %d bytes, flags: %d)\n",
@@ -143,11 +147,43 @@ stress_run(tnt_t * t, stress_t * list, int count)
 		else
 			printf("  -> %d bytes\n", s->bsize);
 
-		s->f(t, s->bsize, count, s->flags, &stat);
+		printf("  ");
 
-		printf("  >> (%d queries in %.2f seconds): %.2f rps\n", count,
-			(float)stat.tm /1000, stat.rps);
+		memset(stats, 0, sizeof(stress_stat_t) * reps);
+
+		int r;
+
+		for (r = 0 ; r < reps ; r++) {
+
+			s->f(t, s->bsize, count, s->flags, &stats[r]);
+
+			printf("[%.2f %.2f] ", stats[r].rps, (float)stats[r].tm / 1000);
+			fflush(stdout);
+		}
+
+		unsigned long long tm = 0;
+		float rps = 0.0, avg, avgtm;
+
+		for (r = 0 ; r < reps ; r++) {
+
+			rps += stats[r].rps;
+			tm += stats[r].tm;
+		}
+
+		avgtm = (float)tm / 1000 / reps;
+		avg = rps / reps;
+
+		printf("\n");
+
+		if (color)
+			printf("  >> (avg time \033[22;35m%.2f\033[0m seconds): \033[22;32m%.2f\033[0m avg rps\n", 
+				avgtm, avg);
+		else
+			printf("  >> (avg time %.2f seconds): %.2f avg rps\n", 
+				avgtm, avg);
 	}
+
+	free(stats);
 }
 
 int
@@ -167,13 +203,14 @@ main(int argc, char * argv[])
 	int rbuf = 16384;
 	int sbuf = 16384;
 
+	int reps = 1;
+	int color = 1;
 	int big = 0;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:r:s:hb")) != -1 ) {
+	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:R:r:s:hb")) != -1 ) {
 		switch (opt) {
-		case 't':
-
+			case 't':
 				if (!strcmp(optarg, "chap"))
 					auth = TNT_AUTH_CHAP;
 				else
@@ -208,6 +245,14 @@ main(int argc, char * argv[])
 				count = atoi(optarg);
 				break;
 
+			case 'C':
+				color = atoi(optarg);
+				break;
+
+			case 'R':
+				reps = atoi(optarg);
+				break;
+
 			case 'r':
 				rbuf = atoi(optarg);
 				break;
@@ -231,6 +276,8 @@ main(int argc, char * argv[])
 			 	       "        [-a host  = localhost]\n"
 				       "        [-p port  = 15312]\n"
 				       "        [-c count = 1000]\n"
+				       "        [-C color = 1]\n"
+				       "        [-R reps  = 1]\n"
 				       "        [-r rbuf  = 16384]\n"
 				       "        [-s sbuf  = 16384]\n"
 				       "        [-b       = 0]\n");
@@ -283,9 +330,9 @@ main(int argc, char * argv[])
 	}
 
 	if (big)
-		stress_run(t, stress_big, count);
+		stress_run(t, stress_big, color, count, reps);
 	else
-		stress_run(t, stress_small, count);
+		stress_run(t, stress_small, color, count, reps);
 
 	tnt_free(t);
 	return 0;
