@@ -119,7 +119,8 @@ stress_t stress_small[] =
 };
 
 static void
-stress_run(tnt_t * t, stress_t * list, int color, int count, int reps)
+stress_run(tnt_t * t, stress_t * list,
+	int color, int compact, int count, int reps)
 {
 	stress_stat_t * stats = malloc(sizeof(stress_stat_t) * reps);
 
@@ -137,17 +138,20 @@ stress_run(tnt_t * t, stress_t * list, int color, int count, int reps)
 			if (color)
 				printf("[\033[22;33m%s\033[0m]\n", s->name);
 			else
-				printf("%s\n", s->name);
+				printf("[%s]\n", s->name);
 			continue;
 		}
 
-		if (s->name) 
-			printf("  -> %s (bsize: %d bytes, flags: %d)\n",
-				s->name, s->bsize, s->flags);
-		else
-			printf("  -> %d bytes\n", s->bsize);
-
-		printf("  ");
+		if (compact)
+			printf("  [%3d]", s->bsize);
+		else {
+			if (s->name) 
+				printf("  -> %s (bsize: %d bytes, flags: %d)\n",
+					s->name, s->bsize, s->flags);
+			else
+				printf("  -> %d bytes\n", s->bsize);
+			printf("  ");
+		}
 
 		memset(stats, 0, sizeof(stress_stat_t) * reps);
 
@@ -157,7 +161,9 @@ stress_run(tnt_t * t, stress_t * list, int color, int count, int reps)
 
 			s->f(t, s->bsize, count, s->flags, &stats[r]);
 
-			printf("[%.2f %.2f] ", stats[r].rps, (float)stats[r].tm / 1000);
+			if (!compact)
+				printf("[%.2f %.2f] ", stats[r].rps, (float)stats[r].tm / 1000);
+
 			fflush(stdout);
 		}
 
@@ -173,14 +179,22 @@ stress_run(tnt_t * t, stress_t * list, int color, int count, int reps)
 		avgtm = (float)tm / 1000 / reps;
 		avg = rps / reps;
 
-		printf("\n");
+		if (compact) {
 
-		if (color)
-			printf("  >> (avg time \033[22;35m%.2f\033[0m seconds): \033[22;32m%.2f\033[0m avg rps\n", 
-				avgtm, avg);
-		else
-			printf("  >> (avg time %.2f seconds): %.2f avg rps\n", 
-				avgtm, avg);
+			if (color)
+				printf(" \033[22;32m%.2f\033[0m\n", avg);
+			else
+				printf(" %.2f\n", avg);
+		} else {
+			printf("\n");
+
+			if (color)
+				printf("  >> (avg time \033[22;35m%.2f\033[0m seconds): \033[22;32m%.2f\033[0m avg rps\n", 
+					avgtm, avg);
+			else
+				printf("  >> (avg time %.2f seconds): %.2f avg rps\n", 
+					avgtm, avg);
+		}
 	}
 
 	free(stats);
@@ -203,12 +217,13 @@ main(int argc, char * argv[])
 	int rbuf = 16384;
 	int sbuf = 16384;
 
+	int compact = 0;
 	int reps = 1;
 	int color = 1;
 	int big = 0;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:R:r:s:hb")) != -1 ) {
+	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:B:R:Cr:s:hb")) != -1 ) {
 		switch (opt) {
 			case 't':
 				if (!strcmp(optarg, "chap"))
@@ -245,8 +260,12 @@ main(int argc, char * argv[])
 				count = atoi(optarg);
 				break;
 
-			case 'C':
+			case 'B':
 				color = atoi(optarg);
+				break;
+
+			case 'C':
+				compact = 1;
 				break;
 
 			case 'R':
@@ -272,12 +291,13 @@ main(int argc, char * argv[])
 				printf("stress: [-t auth  = chap, sasl]\n"
 				       "        [-i id    = test]\n"
 				       "        [-k key   = 1234567812345678]\n"
-				       "        [-m mech  = SCRAM-SHA-1]\n"
+				       "        [-m mech  = PLAIN]\n"
 			 	       "        [-a host  = localhost]\n"
 				       "        [-p port  = 15312]\n"
 				       "        [-c count = 1000]\n"
-				       "        [-C color = 1]\n"
+				       "        [-B color = 1]\n"
 				       "        [-R reps  = 1]\n"
+				       "        [-C compact = 0]\n"
 				       "        [-r rbuf  = 16384]\n"
 				       "        [-s sbuf  = 16384]\n"
 				       "        [-b       = 0]\n");
@@ -288,12 +308,16 @@ main(int argc, char * argv[])
 
 	printf("tarantool stress-suite.\n\n");
 
-	printf("server: %s (%d)\n", host, port);
-	printf("id:     %s\n", id);
-	printf("key:    %s\n", key);
-	printf("rbuf:   %d\n", rbuf);
-	printf("sbuf:   %d\n", sbuf);
-	printf("count:  %d\n\n", count);
+	if (!compact) {
+
+		printf("server: %s (%d)\n", host, port);
+		printf("id:     %s\n", id);
+		printf("key:    %s\n", key);
+		printf("rbuf:   %d\n", rbuf);
+		printf("sbuf:   %d\n", sbuf);
+		printf("count:  %d\n\n", count);
+		printf("reps:   %d\n\n", reps);
+	}
 
 	tnt_t * t = tnt_init(TNT_PROTO_RW, rbuf, sbuf);
 
@@ -330,9 +354,9 @@ main(int argc, char * argv[])
 	}
 
 	if (big)
-		stress_run(t, stress_big, color, count, reps);
+		stress_run(t, stress_big, color, compact, count, reps);
 	else
-		stress_run(t, stress_small, color, count, reps);
+		stress_run(t, stress_small, color, compact, count, reps);
 
 	tnt_free(t);
 	return 0;
