@@ -28,12 +28,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <unistd.h>
-
 #include <tnt_error.h>
 #include <tnt_aes.h>
 #include <tnt_cmac.h>

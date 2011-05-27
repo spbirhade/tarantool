@@ -220,7 +220,7 @@ tnt_tuple_add(tnt_tuple_t * tuple, char * data, int size)
 tnt_error_t
 tnt_tuple_pack(tnt_tuple_t * tuple, char ** data, int * size)
 {
-	char             * p;
+	char * p;
 	tnt_tuple_field_t * f;
 
 	*size = tuple->size_enc;

@@ -29,9 +29,7 @@
 #include <string.h>
 
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/uio.h>
-#include <unistd.h>
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
