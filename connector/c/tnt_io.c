@@ -169,7 +169,7 @@ tnt_io_connect_do(tnt_t * t, char * host, int port)
 			socklen_t len = sizeof(opt);
 
 			if ((getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &opt, &len) == -1) || opt) {
-				t->error_errno = (opt) ? opt : errno;
+				t->error_errno = (opt) ? opt: errno;
 				return TNT_ESYSTEM;
 			}
 
@@ -295,6 +295,17 @@ tnt_io_flush(tnt_t * t)
 	return TNT_EOK;
 }
 
+int
+tnt_io_send_raw(tnt_t * t, char * buf, int size)
+{
+	int result = send(t->fd, buf, size, 0);
+
+	if (result == -1)
+		t->error_errno = errno;
+
+	return result;
+}
+
 tnt_error_t
 tnt_io_send(tnt_t * t, char * buf, int size)
 {
@@ -372,6 +383,17 @@ tnt_io_sendv(tnt_t * t, void * iovec, int count)
 
 	tnt_io_sendv_put(t, iovec, count);
 	return TNT_EOK;
+}
+
+int
+tnt_io_recv_raw(tnt_t * t, char * buf, int size)
+{
+	int result = recv(t->fd, buf, size, 0);
+
+	if (result == -1)
+		t->error_errno = errno;
+
+	return result;
 }
 
 static tnt_error_t

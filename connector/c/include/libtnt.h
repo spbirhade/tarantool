@@ -29,6 +29,7 @@
 #include <tnt_error.h>
 #include <tnt_mem.h>
 #include <tnt.h>
+#include <tnt_io.h>
 #include <tnt_proto.h>
 #include <tnt_tuple.h>
 #include <tnt_insert.h>
@@ -36,7 +37,6 @@
 #include <tnt_delete.h>
 #include <tnt_select.h>
 #include <tnt_ping.h>
-#include <tnt_raw.h>
 #include <tnt_map.h>
 #include <tnt_recv.h>
 

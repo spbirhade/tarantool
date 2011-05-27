@@ -3,7 +3,6 @@ set (connector_c_sources
 	tnt.c
 	tnt_mem.c
 	tnt_io.c
-	tnt_raw.c
 	tnt_md5.c
 	tnt_aes.c
 	tnt_cmac.c

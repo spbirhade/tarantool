@@ -315,7 +315,7 @@ main(int argc, char * argv[])
 		printf("key:    %s\n", key);
 		printf("rbuf:   %d\n", rbuf);
 		printf("sbuf:   %d\n", sbuf);
-		printf("count:  %d\n\n", count);
+		printf("count:  %d\n", count);
 		printf("reps:   %d\n\n", reps);
 	}
 

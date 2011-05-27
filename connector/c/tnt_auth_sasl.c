@@ -38,7 +38,6 @@
 #include <tnt_cmac.h>
 #include <tnt.h>
 #include <tnt_io.h>
-#include <tnt_raw.h>
 #include <tnt_auth_sasl.h>
 
 static char*
@@ -90,7 +89,7 @@ tnt_auth_sasl_sendfirst(tnt_t * t, Gsasl_session * session)
 		free(data);
 
 		if (rc == GSASL_NEEDS_MORE)
-			if (tnt_raw_recv(t, buf, sizeof(buf)) == -1)
+			if (tnt_io_recv_raw(t, buf, sizeof(buf)) == -1)
 				return TNT_ESYSTEM;
 
 	} while(rc == GSASL_NEEDS_MORE);
