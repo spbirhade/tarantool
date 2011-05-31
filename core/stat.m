@@ -99,7 +99,8 @@ stat_record(void *data __attribute__((unused)))
                         continue;
 
 		lua_getglobal(L, "stat");
-		lua_getfield(L, -1, "record"); /* stack top is stat.record */
+		lua_getfield(L, -1, "record");
+		lua_remove(L, 1); /* stack top is stat.record */
 
 		lua_newtable(L); /* table with stats */
 		for (int i = 0; i <= stats_max; i++) {
