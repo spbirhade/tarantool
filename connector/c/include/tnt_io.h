@@ -44,19 +44,27 @@ tnt_io_flush(tnt_t * t);
 int
 tnt_io_send_raw(tnt_t * t, char * buf, int size);
 
+int
+tnt_io_send_rawv(tnt_t * t, void * iovec, int count);
+
+int
+tnt_io_recv_raw(tnt_t * t, char * buf, int size);
+
+
 tnt_error_t
 tnt_io_send(tnt_t * t, char * buf, int size);
 
 tnt_error_t
 tnt_io_sendv(tnt_t * t, void * iovec, int count);
 
-int
-tnt_io_recv_raw(tnt_t * t, char * buf, int size);
 
 tnt_error_t
 tnt_io_recv(tnt_t * t, char * buf, int size);
 
 tnt_error_t
-tnt_io_recv_continue(tnt_t * t, char * buf, int size, int off);
+tnt_io_recv_char(tnt_t * t, char buf[1]);
+
+tnt_error_t
+tnt_io_recv_expect(tnt_t * t, char * sz);
 
 #endif

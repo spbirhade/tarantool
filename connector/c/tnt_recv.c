@@ -135,8 +135,14 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	/* error/reply */
 	if (hdr->hdr.len == 4) {
 
+		t->error = tnt_io_recv(t, buffer + sizeof(tnt_proto_header_t),
+				sizeof(tnt_proto_header_resp_t) -
+				sizeof(tnt_proto_header_t));
+
+		/*
 		t->error = tnt_io_recv_continue(t, buffer, sizeof(tnt_proto_header_resp_t),
 				sizeof(tnt_proto_header_t));
+				*/
 
 		if (t->error != TNT_EOK)
 			return -1;
@@ -161,9 +167,15 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	if ((rcv->op != TNT_RECV_SELECT) && (hdr->hdr.len == 8)) {
 
 		/* count only - insert, update, delete */
+		t->error = tnt_io_recv(t, buffer + sizeof(tnt_proto_header_t),
+				sizeof(tnt_proto_header_resp_t) + 4 -
+				sizeof(tnt_proto_header_t));
+
+		/*
 		t->error = tnt_io_recv_continue(t, buffer,
 				sizeof(tnt_proto_header_resp_t) + 4,
 				sizeof(tnt_proto_header_t));
+				*/
 
 		if (t->error != TNT_EOK)
 			return -1;

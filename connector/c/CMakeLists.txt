@@ -16,7 +16,9 @@ set (connector_c_sources
 	tnt_select.c
 	tnt_ping.c
 	tnt_recv.c
-	tnt_map.c)
+	tnt_map.c
+	tnt_memcache_val.c
+	tnt_memcache.c)
 
 if (ENABLE_SASL)
 	set (connector_c_sources ${connector_c_sources} 
