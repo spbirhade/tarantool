@@ -42,7 +42,7 @@ configuration:
   io_collect_interval: "0"
   backlog: "1024"
   readahead: "16320"
-  lua_path: "lua/?.lua;scripts/lua/?.lua;lua/?/?.lua;scripts/lua/?/?.lua"
+  lua_path: "lua/?.lua;scripts/lua/?.lua"
   snap_dir: "."
   wal_dir: "."
   primary_port: "33013"

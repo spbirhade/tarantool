@@ -366,12 +366,8 @@ luaT_init()
         lua_getglobal(L, "require");
         lua_pushliteral(L, "prelude");
 
-	if (lua_pcall(L, 1, 0, 0)) {
-		if (lua_isstring(L, -1))
-			panic("lua_pcall() failed: %s", lua_tostring(L, -1));
-		else
+	if (lua_pcall(L, 1, 0, 0))
 			panic("lua_pcall() failed");
-	}
 
 	lua_atpanic(L, luaT_error);
 	root_L = L;

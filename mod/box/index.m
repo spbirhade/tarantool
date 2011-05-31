@@ -107,44 +107,31 @@ field_compare(struct field *f1, struct field *f2, enum field_data_type type)
 
 /*
  * Compare index_tree_members only by fields defined in index->field_cmp_order.
- * Return:
- *      Common meaning:
- *              < 0  - a is smaller than b
- *              == 0 - a is equal to b
- *              > 0  - a is greater than b
- *      Custom treatment (by absolute value):
- *              1 - differ in some key field
- *              2 - one tuple is a search pattern
- *              3 - differ in pointers
  */
 static int
-tree_index_member_compare(struct tree_index_member *member_a, struct tree_index_member *member_b,
-			  struct index *index)
+tree_index_member_compare(struct tree_index_member *node_a, struct tree_index_member *node_b, struct index *index)
 {
-	i8 r = 0;
-
-	for (i32 i = 0, end = index->key_cardinality; i < end; ++i) {
-		r = field_compare(&member_a->key[i], &member_b->key[i], index->key_field[i].type);
-
+	for (int i = 0, end = index->key_cardinality; i < end; ++i) {
+		int r = field_compare(&node_a->key[i], &node_b->key[i],
+				      index->key_field[i].type);
 		if (r != 0)
-			break;
+			return r;
 	}
 
+	return 0;
+}
+
+static int
+tree_index_member_and_addr_compare(struct tree_index_member *node_a, struct tree_index_member *node_b, struct index *index)
+{
+	int r = tree_index_member_compare(node_a, node_b, index);
 	if (r != 0)
 		return r;
 
-	if (member_a->tuple == NULL)
-		return -2;
-
-	if (member_b->tuple == NULL)
-		return 2;
-
-	if (index->unique == false) {
-		if (member_a->tuple > member_b->tuple)
-			return 3;
-		else if (member_a->tuple < member_b->tuple)
-			return -3;
-	}
+	if (node_a->tuple > node_b->tuple)
+		return 1;
+	else if (node_a->tuple < node_b->tuple)
+		return -1;
 
 	return 0;
 }
@@ -276,6 +263,14 @@ alloc_search_pattern(struct index *index, int key_cardinality, void *key)
 
 	pattern->tuple = NULL;
 
+	return pattern;
+}
+
+struct tree_index_member *
+alloc_search_pattern_with_tuple(struct index *self, struct box_tuple *tuple)
+{
+	struct tree_index_member *pattern = self->search_pattern;
+	tuple2tree_index_member(self, tuple, &pattern);
 	return pattern;
 }
 
@@ -441,7 +436,19 @@ index_iterator_init_tree_str(struct index *self, struct tree_index_member *patte
 }
 
 struct box_tuple *
-index_iterator_next_tree_str(struct index *self, struct tree_index_member *pattern)
+index_iterator_next_tree_str(struct index *self)
+{
+	struct tree_index_member *member =
+		sptree_str_t_iterator_next((struct sptree_str_t_iterator *)self->iterator);
+
+	if (member != NULL)
+		return member->tuple;
+
+	return NULL;
+}
+
+struct box_tuple *
+index_iterator_next_validate_pattern_tree_str(struct index *self, struct tree_index_member *pattern)
 {
 	struct tree_index_member *member =
 		sptree_str_t_iterator_next((struct sptree_str_t_iterator *)self->iterator);
@@ -450,7 +457,7 @@ index_iterator_next_tree_str(struct index *self, struct tree_index_member *patte
 		return NULL;
 
 	i32 r = tree_index_member_compare(pattern, member, self);
-	if (r == -2)
+	if (r == 0)
 		return member->tuple;
 
 	return NULL;
@@ -569,7 +576,9 @@ build_indexes(void)
 			sptree_str_t_init(index->idx.tree,
 					  SIZEOF_TREE_INDEX_MEMBER(index),
 					  member, n_tuples, estimated_tuples,
-					  (void *)tree_index_member_compare, index);
+					  index->unique ? (void *)tree_index_member_compare
+					                : (void *)tree_index_member_and_addr_compare,
+					  index);
 			index->enabled = true;
 
 			say_info("build_indexes: n = %" PRIu32 " idx = %" PRIu32 ": end", n, idx);
@@ -633,5 +642,6 @@ index_tree(struct index *index, struct namespace *namespace,
 	index->replace = index_replace_tree_str;
 	index->iterator_init = index_iterator_init_tree_str;
 	index->iterator_next = index_iterator_next_tree_str;
+	index->iterator_next_validate_pattern = index_iterator_next_validate_pattern_tree_str;
 	index->idx.tree = palloc(eter_pool, sizeof(*index->idx.tree));
 }

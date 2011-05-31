@@ -82,7 +82,6 @@ Tarantool/Box 1.minor.patch-<rev>-<commit>
 tarantool_box --config=bug726778.cfg --init-storage
 tarantool_box: Lua prelude initialized.
 tarantool_box: namespace 0 successfully configured
-tarantool_box: MoonBox initialized.
 tarantool_box: creating `snapshots/00000000000000000001.snap.inprogress'
 tarantool_box: saving snapshot `snapshots/00000000000000000001.snap'
 tarantool_box: done

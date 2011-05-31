@@ -72,7 +72,9 @@ struct index {
 	void (*remove) (struct index * index, struct box_tuple *);
 	void (*replace) (struct index * index, struct box_tuple *, struct box_tuple *);
 	void (*iterator_init) (struct index *, struct tree_index_member * pattern);
-	struct box_tuple *(*iterator_next) (struct index *, struct tree_index_member * pattern);
+	struct box_tuple *(*iterator_next) (struct index *);
+	struct box_tuple *(*iterator_next_validate_pattern)(struct index *,
+							    struct tree_index_member *pattern);
 	union {
 		khash_t(lstr_ptr_map) * str_hash;
 		khash_t(int_ptr_map) * int_hash;
@@ -113,8 +115,7 @@ void index_hash_str(struct index *index, struct namespace *namespace, size_t est
 void index_tree(struct index *index, struct namespace *namespace, size_t /* estimated_rows */);
 
 struct tree_index_member * alloc_search_pattern(struct index *index, int key_cardinality, void *key);
-void index_iterator_init_tree_str(struct index *self, struct tree_index_member *pattern);
-struct box_tuple * index_iterator_next_tree_str(struct index *self, struct tree_index_member *pattern);
+struct tree_index_member * alloc_search_pattern_with_tuple(struct index *index, struct box_tuple *tuple);
 
 struct box_txn;
 void validate_indexes(struct box_txn *txn);

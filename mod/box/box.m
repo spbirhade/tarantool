@@ -643,7 +643,10 @@ process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 				alloc_search_pattern(txn->index, key_len, key);
 			txn->index->iterator_init(txn->index, pattern);
 
-			while ((tuple = txn->index->iterator_next(txn->index, pattern)) != NULL) {
+			typeof(txn->index->iterator_next_validate_pattern) next =
+				txn->index->iterator_next_validate_pattern;
+
+			while ((tuple = next(txn->index, pattern)) != NULL) {
 				if (tuple->flags & GHOST)
 					continue;
 
@@ -1497,10 +1500,11 @@ mod_init(void)
 	}
 
 	custom_init();
-	luaT_openbox(root_L);
 
 	if (init_storage)
 		return;
+
+	luaT_openbox(root_L);
 
 	recover(recovery_state, 0);
 

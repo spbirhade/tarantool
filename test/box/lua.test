@@ -1,4 +1,8 @@
 # encoding: tarantool
+
+server.stop()
+server.deploy("box/tarantool_tree.cfg")
+
 exec sql "ping"
 
 exec sql "insert into t0 values (0, 'I am a tuple 0')"
@@ -13,3 +17,7 @@ exec sql "insert into t0 values (8, 'I am a tuple 8')"
 exec sql "insert into t0 values (9, 'I am a tuple 9')"
 
 exec sql "lua_call get_all_tuples() over t0"
+
+# restore default server
+server.stop()
+server.deploy(self.suite_ini["config"])

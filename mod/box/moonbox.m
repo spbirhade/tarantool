@@ -179,23 +179,53 @@ luaT_checkindex(struct lua_State *L, int i)
 	return *index;
 }
 
+static struct index *
+luaT_checkindex_stringhash(struct lua_State *L, int i)
+{
+	struct index **index = luaL_checkudata(L, i, indexlib_name);
+	assert(index != NULL);
+	if ((*index)->type != HASH) {
+		lua_pushliteral(L, "index type must be hash");
+		lua_error(L);
+	}
+
+	return *index;
+}
+
 static int
 luaT_index_index(struct lua_State *L)
 {
 	struct index *index = luaT_checkindex(L, 1);
 
-	struct tbuf *key;
+	struct box_tuple *tuple = NULL;
+	struct tbuf *key = tbuf_alloc(fiber->pool);
+
 	if (lua_isstring(L, 2)) {
-		key = tbuf_alloc(fiber->pool);
 		size_t len;
 		const char *str = lua_tolstring(L, 2, &len);
 		write_varint32(key, len);
 		tbuf_append(key, str, len);
+		tuple = index->find(index, key->data);
+	} else if (lua_istable(L, 2)) {
+		int cardinality = 0;
+		lua_pushnil(L);  /* first key */
+		while (lua_next(L, 2) != 0) {
+			size_t len;
+			const char *str = lua_tolstring(L, -1, &len);
+			write_varint32(key, len);
+			tbuf_append(key, str, len);
+			cardinality++;
+			lua_pop(L, 1);
+		}
+
+		struct tree_index_member *pattern = alloc_search_pattern(index, cardinality, key);
+		index->iterator_init(index, pattern);
+		tuple = index->iterator_next_validate_pattern(index, pattern);
 	} else {
 		key = luaT_checktbuf(L, 2);
+		tuple = index->find(index, key->data);
 	}
 
-	void *tuple = index->find(index, key->data);
 	if (tuple != NULL) {
 		luaT_pushtuple(L, tuple);
 		return 1;
@@ -203,16 +233,12 @@ luaT_index_index(struct lua_State *L)
 	return 0;
 }
 
+
 static int
 luaT_index_hashget(struct lua_State *L)
 {
-	struct index *index = luaT_checkindex(L, 1);
+	struct index *index = luaT_checkindex_stringhash(L, 1);
 	i64 i = luaL_checkinteger(L, 2);
-
-	if (index->type != HASH) {
-		lua_pushliteral(L, "index type must be hash");
-		lua_error(L);
-	}
 
 	khash_t(lstr_ptr_map) *map = index->idx.str_hash;
 
@@ -230,12 +256,7 @@ luaT_index_hashget(struct lua_State *L)
 static int
 luaT_index_hashsize(struct lua_State *L)
 {
-	struct index *index = luaT_checkindex(L, 1);
-
-	if (index->type != HASH) {
-		lua_pushliteral(L, "index type must be hash");
-		lua_error(L);
-	}
+	struct index *index = luaT_checkindex_stringhash(L, 1);
 
 	khash_t(lstr_ptr_map) *map = index->idx.str_hash;
 
@@ -246,18 +267,13 @@ luaT_index_hashsize(struct lua_State *L)
 static int
 luaT_index_hashnext(struct lua_State *L)
 {
-	struct index *index = luaT_checkindex(L, 1);
+	struct index *index = luaT_checkindex_stringhash(L, 1);
 	i64 i;
 
 	if (lua_isnil(L, 2))
 		i = 0;
 	else
 		i = luaL_checkinteger(L, 2) + 1;
-
-	if (index->type != HASH) {
-		lua_pushliteral(L, "index type must be hash");
-		lua_error(L);
-	}
 
 	khash_t(lstr_ptr_map) *map = index->idx.str_hash;
 
@@ -276,6 +292,72 @@ luaT_index_hashnext(struct lua_State *L)
 	return 0;
 }
 
+static int
+luaT_index_treenext(struct lua_State *L)
+{
+	struct index *index = luaT_checkindex(L, 1);
+	if (index->type != TREE) {
+		lua_pushliteral(L, "index type must be tree");
+		lua_error(L);
+	}
+
+	struct box_tuple *t = index->iterator_next(index);
+	if (t != NULL) {
+		luaT_pushtuple(L, t);
+		return 1;
+	}
+	return 0;
+}
+
+static int
+luaT_index_treeiter(struct lua_State *L)
+{
+	struct index *index = luaT_checkindex(L, 1);
+	if (index->type != TREE) {
+		lua_pushliteral(L, "index type must be tree");
+		lua_error(L);
+	}
+
+	struct tree_index_member *pattern;
+	struct tbuf *key = tbuf_alloc(fiber->pool);
+	if (lua_isstring(L, 2)) {
+		size_t len;
+		const char *str = lua_tolstring(L, 2, &len);
+		write_varint32(key, len);
+		tbuf_append(key, str, len);
+		pattern = alloc_search_pattern(index, 1, key);
+		index->iterator_init(index, pattern);
+	} else if (lua_istable(L, 2)) {
+		int cardinality = 0;
+		lua_pushnil(L);  /* first key */
+		while (lua_next(L, 2) != 0) {
+			size_t len;
+			const char *str = lua_tolstring(L, -1, &len);
+			write_varint32(key, len);
+			tbuf_append(key, str, len);
+			cardinality++;
+			lua_pop(L, 1);
+		}
+		pattern = alloc_search_pattern(index, cardinality, key);
+		index->iterator_init(index, pattern);
+	} else if (lua_isnil(L, 2)) {
+		pattern = alloc_search_pattern(index, 0, NULL);
+		index->iterator_init(index, pattern);
+	} else if (lua_isuserdata(L, 2)) {
+		struct box_tuple *tuple = *(void **)luaL_checkudata(L, 2, tuplelib_name);
+		pattern = alloc_search_pattern_with_tuple(index, tuple);
+		index->iterator_init(index, pattern);
+	} else {
+		lua_pushliteral(L, "wrong key type");
+		lua_error(L);
+	}
+
+	lua_pushcfunction(L, luaT_index_treenext);
+	lua_pushvalue(L, 1);
+	return 2;
+}
+
+
 static const struct luaL_reg indexlib_m [] = {
 	{"__index", luaT_index_index},
 	{NULL, NULL}
@@ -285,6 +367,7 @@ static const struct luaL_reg indexlib [] = {
 	{"hashget", luaT_index_hashget},
 	{"hashsize", luaT_index_hashsize},
 	{"hashnext", luaT_index_hashnext},
+	{"treeiter", luaT_index_treeiter},
 	{NULL, NULL}
 };
 
