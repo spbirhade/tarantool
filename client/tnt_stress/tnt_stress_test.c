@@ -24,38 +24,15 @@
  * SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <time.h>
-
 #include <libtnt.h>
+
 #include <client/tnt_stress/tnt_stress.h>
-
-static long long
-stress_time(void)
-{
-    long long tm;
-    struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-
-    tm = ((long)tv.tv_sec)*1000;
-    tm += tv.tv_usec/1000;
-
-    return tm;
-}
-
-static void
-stress_end(long long start, int count, stress_stat_t * stat)
-{
-	stat->tm  = stress_time() - start;
-	stat->rps = (float)count / ((float)stat->tm / 1000);
-}
+#include <client/tnt_stress/tnt_stress_test.h>
 
 static void
 stress_recv(tnt_t * t, int count)
@@ -96,17 +73,6 @@ stress_recv(tnt_t * t, int count)
 
 		tnt_recv_free(&rcv);
 	}
-}
-
-static void
-stress_error(tnt_t * t, char * name)
-{
-	printf("%s failed: %s", name, tnt_perror(t));
-
-	if (tnt_error(t) == TNT_ESYSTEM)
-		printf("(%s)", strerror(tnt_error_errno(t)));
-
-	printf("\n");
 }
 
 void

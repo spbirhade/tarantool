@@ -1,5 +1,5 @@
-#ifndef TNT_STRESS_H_
-#define TNT_STRESS_H_
+#ifndef TNT_STRESS_MEMCACHE_H_
+#define TNT_STRESS_MEMCACHE_H_
 
 /*
  * Copyright (C) 2010 Mail.RU
@@ -26,35 +26,12 @@
  * SUCH DAMAGE.
  */
 
-typedef struct {
-
-	long long tm;
-	float rps;
-
-	void * ptr;
-
-} stress_stat_t;
-
-typedef void (*stressf_t)(tnt_t * t,
+void
+stress_memcache_set(tnt_t * t,
 	int bsize, int count, int flags, stress_stat_t * stat);
 
-typedef struct {
-
-	int         group;
-	char      * name;
-	stressf_t   f;
-	int         bsize;
-	int         flags;
-
-} stress_t;
-
 void
-stress_error(tnt_t * t, char * name);
-
-long long
-stress_time(void);
-
-void
-stress_end(long long start, int count, stress_stat_t * stat);
+stress_memcache_get(tnt_t * t,
+	int bsize, int count, int flags, stress_stat_t * stat);
 
 #endif

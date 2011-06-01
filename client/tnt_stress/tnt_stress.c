@@ -24,64 +24,21 @@
  * SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <libtnt.h>
+
 #include <client/tnt_stress/tnt_stress.h>
-
-static
-stress_t stress_big[] =
-{
-	{ 1, "ping",    NULL,           0,     0 },
-	{ 0, NULL,      stress_ping,    0,     0 },
-
-	{ 1, "insert",  NULL,           0,     0 },
-	{ 0, NULL,      stress_insert,  2,     0 },
-	{ 0, NULL,      stress_insert,  8,     0 },
-	{ 0, NULL,      stress_insert,  32,    0 },
-	{ 0, NULL,      stress_insert,  64,    0 },
-	{ 0, NULL,      stress_insert,  128,   0 },
-	{ 0, NULL,      stress_insert,  256,   0 },
-	{ 0, NULL,      stress_insert,  512,   0 },
-
-	{ 1, "insert-return", NULL,     0,     0 },
-	{ 0, NULL,      stress_insert,  2,     TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  8,     TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  32,    TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  64,    TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  128,   TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  256,   TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_insert,  512,   TNT_PROTO_FLAG_RETURN },
-
-	{ 1, "update",  NULL,           0,     0 },
-	{ 0, NULL,      stress_update,  2,     0 },
-	{ 0, NULL,      stress_update,  8,     0 },
-	{ 0, NULL,      stress_update,  32,    0 },
-	{ 0, NULL,      stress_update,  64,    0 },
-	{ 0, NULL,      stress_update,  128,   0 },
-	{ 0, NULL,      stress_update,  256,   0 },
-	{ 0, NULL,      stress_update,  512,   0 },
-
-	{ 1, "update-return", NULL,     0,     TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  2,     TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  8,     TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  32,    TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  64,    TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  128,   TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  256,   TNT_PROTO_FLAG_RETURN },
-	{ 0, NULL,      stress_update,  512,   TNT_PROTO_FLAG_RETURN },
-
-	{ 1, "select", NULL,            0,     0 },
-	{ 0, NULL,      stress_select,  0,     0 },
-
-	{ 1, "select-set", NULL,        0,     0 },
-	{ 0, NULL,      stress_select_set, 0,  0 },
-
-	{ 2, NULL,      0,              0,     0 }
-};
+#include <client/tnt_stress/tnt_stress_test.h>
+#include <client/tnt_stress/tnt_stress_memcache.h>
 
 static
 stress_t stress_small[] =
@@ -117,6 +74,62 @@ stress_t stress_small[] =
 
 	{ 2, NULL,      0,              0,     0 }
 };
+
+static
+stress_t stress_memcache[] =
+{
+	{ 1, "set", NULL, 0, 0 },
+	{ 0, NULL,  stress_memcache_set, 100, 0 },
+
+	{ 1, "get", NULL, 0, 0 },
+	{ 0, NULL,  stress_memcache_get, 100, 0 },
+
+	{ 2, NULL,  0,    0, 0 }
+};
+
+static
+stress_t stress_memcache_iproto[] =
+{
+	{ 1, "insert",  NULL,           0,   0 },
+	{ 0, NULL,      stress_insert,  100, 0 },
+
+	{ 1, "select",  NULL,           0,   0 },
+	{ 0, NULL,      stress_select,  0,   0 },
+
+	{ 2, NULL,  0,    0, 0 }
+};
+
+void
+stress_error(tnt_t * t, char * name)
+{
+	printf("%s failed: %s", name, tnt_perror(t));
+
+	if (tnt_error(t) == TNT_ESYSTEM)
+		printf("(%s)", strerror(tnt_error_errno(t)));
+
+	printf("\n");
+}
+
+long long
+stress_time(void)
+{
+    long long tm;
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    tm = ((long)tv.tv_sec)*1000;
+    tm += tv.tv_usec/1000;
+
+    return tm;
+}
+
+void
+stress_end(long long start, int count, stress_stat_t * stat)
+{
+	stat->tm  = stress_time() - start;
+	stat->rps = (float)count / ((float)stat->tm / 1000);
+}
 
 static void
 stress_run(tnt_t * t, stress_t * list,
@@ -159,6 +172,7 @@ stress_run(tnt_t * t, stress_t * list,
 
 		for (r = 0 ; r < reps ; r++) {
 
+			stats[r].ptr = s;
 			s->f(t, s->bsize, count, s->flags, &stats[r]);
 
 			if (!compact)
@@ -200,6 +214,34 @@ stress_run(tnt_t * t, stress_t * list,
 	free(stats);
 }
 
+static void
+usage(void)
+{
+	printf("tarantool stress-suite.\n\n");
+
+	printf("tnt_stress [options]\n");
+
+	printf("connection:\n");
+	printf("  -a [host]        server address {localhost}\n");
+	printf("  -p [port]        server port {15312}\n");
+	printf("  -r [rbuf]        receive buffer size {16384}\n");
+	printf("  -s [sbuf]        send buffer size {16384}\n");
+	printf("  -M               memcache mode {off}\n");
+	printf("  -K               memcache test for iproto {off}\n\n");
+
+	printf("authentication:\n");
+	printf("  -t [auth_type]   authentication type {chap, sasl}\n");
+	printf("  -i [id]          authentication id {test}\n");
+	printf("  -k [key]         authentication key {test}\n");
+	printf("  -m [mech]        authentication SASL mechanism {PLAIN}\n\n");
+
+	printf("stress:\n");
+	printf("  -C [count]       request count {1000}\n");
+	printf("  -R [rep]         count of request repeats {1000}\n");
+	printf("  -c               compact mode {off}\n");
+	printf("  -b [color]       color output {on}\n");
+}
+
 int
 main(int argc, char * argv[])
 {
@@ -211,19 +253,20 @@ main(int argc, char * argv[])
 	char * id = "test";
 	char * key = "1234567812345678";
 	int key_size = 16;
-	char * mech = "SCRAM-SHA-1";
+	char * mech = "PLAIN";
 
+	int color = 1;
 	int count = 1000;
 	int rbuf = 16384;
 	int sbuf = 16384;
 
-	int compact = 0;
 	int reps = 1;
-	int color = 1;
-	int big = 0;
+	int compact = 0;
+	int memcache = 0;
+	int memcache_set = 0;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:c:B:R:Cr:s:hb")) != -1 ) {
+	while ((opt = getopt(argc, argv, "t:i:k:m:a:p:cMR:C:r:s:hb:K")) != -1 ) {
 		switch (opt) {
 			case 't':
 				if (!strcmp(optarg, "chap"))
@@ -256,20 +299,20 @@ main(int argc, char * argv[])
 				port = atoi(optarg);
 				break;
 
-			case 'c':
-				count = atoi(optarg);
-				break;
-
-			case 'B':
+			case 'b':
 				color = atoi(optarg);
-				break;
-
-			case 'C':
-				compact = 1;
 				break;
 
 			case 'R':
 				reps = atoi(optarg);
+				break;
+
+			case 'C':
+				count = atoi(optarg);
+				break;
+
+			case 'c':
+				compact = 1;
 				break;
 
 			case 'r':
@@ -280,28 +323,17 @@ main(int argc, char * argv[])
 				sbuf = atoi(optarg);
 				break;
 
-			case 'b':
-				big = 1;
+			case 'M':
+				memcache = 1;
+				break;
+
+			case 'K':
+				memcache_set = 1;
 				break;
 
 			case 'h':
 			default:
-				printf("tarantool stress-suite.\n\n");
-
-				printf("stress: [-t auth  = chap, sasl]\n"
-				       "        [-i id    = test]\n"
-				       "        [-k key   = 1234567812345678]\n"
-				       "        [-m mech  = PLAIN]\n"
-			 	       "        [-a host  = localhost]\n"
-				       "        [-p port  = 15312]\n"
-				       "        [-c count = 1000]\n"
-				       "        [-B color = 1]\n"
-				       "        [-R reps  = 1]\n"
-				       "        [-C compact = 0]\n"
-				       "        [-r rbuf  = 16384]\n"
-				       "        [-s sbuf  = 16384]\n"
-				       "        [-b       = 0]\n");
-
+				usage();
 				return 1;
 		}
 	}
@@ -353,10 +385,14 @@ main(int argc, char * argv[])
 		return 1;
 	}
 
-	if (big)
-		stress_run(t, stress_big, color, compact, count, reps);
-	else
-		stress_run(t, stress_small, color, compact, count, reps);
+	if (memcache)
+		stress_run(t, stress_memcache, color, compact, count, reps);
+	else {
+		if (memcache_set)
+			stress_run(t, stress_memcache_iproto, color, compact, count, reps);
+		else
+			stress_run(t, stress_small, color, compact, count, reps);
+	}
 
 	tnt_free(t);
 	return 0;
