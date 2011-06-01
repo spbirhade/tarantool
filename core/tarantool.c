@@ -331,6 +331,15 @@ initialize_minimal()
 	initialize(0.1, 4, 2);
 }
 
+void
+tick(void *data __attribute__((unused)))
+{
+	for (;;) {
+		say_info("tick");
+		fiber_sleep(0.5);
+	}
+}
+
 int
 main(int argc, char **argv)
 {
@@ -548,6 +557,9 @@ main(int argc, char **argv)
 
 	mod_init();
 	admin_init();
+	struct fiber *ticker = fiber_create("ticker", -1, 1, tick, NULL);
+	fiber_call(ticker);
+
 	prelease(fiber->pool);
 	say_crit("log level %i", cfg.log_level);
 	say_crit("entering event loop");
