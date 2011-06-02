@@ -823,7 +823,7 @@ txn_commit(struct box_txn *txn)
 
 			i64 lsn = next_lsn(recovery_state, 0);
 			if (!wal_write(recovery_state, wal_tag, fiber->cookie, lsn, t))
-				tnt_raise(tnt_BoxException, errcode:ERR_CODE_UNKNOWN_ERROR);
+				tnt_raise(tnt_BoxException, errcode:ERR_CODE_WAL_IO);
 			confirm_lsn(recovery_state, lsn);
 		}
 
@@ -1116,7 +1116,7 @@ custom_init(void)
 	before_commit_update_hook = calloc(1, sizeof(box_hook_t));
 
 	if (cfg.namespace == NULL)
-		panic("at least one namespace should be configured");
+		panic("at least one namespace must be configured");
 
 	for (int i = 0; i < namespace_count; i++) {
 		if (cfg.namespace[i] == NULL)
@@ -1212,7 +1212,7 @@ custom_init(void)
 			if (strcmp(cfg.namespace[i]->index[j]->type, "HASH") == 0) {
 				if (index->key_cardinality != 1)
 					panic("(namespace = %" PRIu32 " index = %" PRIu32 ") "
-					      "hash index must have single-filed key", i, j);
+					      "hash index must have a single-field key", i, j);
 
 				if (index->unique == false)
 					panic("(namespace = %" PRIu32 " index = %" PRIu32 ") "
@@ -1267,7 +1267,7 @@ box_process(struct box_txn *txn, u32 op, struct tbuf *request_data)
 
 		say_error("tnt_PickleException: `%s' at %s:%i", e->reason, e->file, e->line);
 
-		return ERR_CODE_UNKNOWN_ERROR;
+		return ERR_CODE_ILLEGAL_PARAMS;
 	}
 	@catch (tnt_BoxException *e) {
 		txn_abort(txn);
