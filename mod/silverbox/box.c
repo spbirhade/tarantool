@@ -749,6 +749,8 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 	int saved_iov_cnt = fiber->iov_cnt;
 	ev_tstamp start = ev_now(), stop;
 
+	TIME_THIS(box_dispach);
+
 	if ((ret_code = setjmp(fiber->exc)) != 0)
 		goto abort;
 
@@ -876,6 +878,7 @@ namespace_expire(void *data)
 		struct tbuf *keys_to_delete = tbuf_alloc(fiber->pool);
 		int expired_tuples = 0;
 
+		{TIME_THIS(expire_loop);
 		for (int j = 0; j < namespace->expire_per_loop; j++, i++) {
 			if (i == kh_end(map)) {
 				i = kh_begin(map);
@@ -893,7 +896,8 @@ namespace_expire(void *data)
 			say_debug("expire tuple %p", tuple);
 			tbuf_append_field(keys_to_delete, tuple->data);
 		}
-
+		}
+		{TIME_THIS(expire_delete_tuples);
 		while (keys_to_delete->len > 0) {
 			struct box_txn *txn = txn_alloc(BOX_QUIET);
 			void *key = read_field(keys_to_delete);
@@ -906,6 +910,7 @@ namespace_expire(void *data)
 
 			box_dispach(txn, RW, DELETE, req);
 			expired_tuples++;
+		}
 		}
 		stat_collect(stat_base, EXPIRE, expired_tuples);
 
@@ -1356,7 +1361,6 @@ box_master_or_slave(struct tarantool_cfg *cfg)
 
 			if (!namespace[i].enabled || namespace[i].expire_field <= 0)
 				continue;
-
 			e = fiber_create("box_expire", -1, -1, namespace_expire, &namespace[i]);
 			if (e == NULL)
 				panic("can't start the expire fiber");

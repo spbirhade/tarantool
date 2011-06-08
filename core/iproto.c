@@ -58,6 +58,9 @@ iproto_interact(void *data)
 	for (;;) {
 		if (fiber_bread(fiber->rbuf, sizeof(struct iproto_header)) <= 0)
 			break;
+
+		{TIME_THIS(iproto_parse_loop);
+
 		while ((request = iproto_parse(fiber->rbuf)) != NULL) {
 			reply = palloc(fiber->pool, sizeof(*reply));
 			reply->msg_code = iproto(request)->msg_code;
@@ -75,8 +78,9 @@ iproto_interact(void *data)
 				u32 msg_code = iproto(request)->msg_code;
 				request->len = iproto(request)->len;
 				request->data = iproto(request)->data;
+				{TIME_THIS(iproto_callback_call);
 				reply->ret_code = callback(msg_code, request);
-
+				}
 				/*
 				 * retcode is uint32_t and included int struct iproto_header_retcode
 				 * but we has to count it anyway
@@ -87,7 +91,11 @@ iproto_interact(void *data)
 					reply->len += iovec(fiber->iov)[j].iov_len;
 			}
 		}
+		}
+
+		{TIME_THIS(iproto_flush_output);
 		r = fiber_flush_output();
+		}
 		fiber_gc();
 
 		if (r < 0) {

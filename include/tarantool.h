@@ -56,4 +56,16 @@ double tarantool_uptime(void);
 char **init_set_proc_title(int argc, char **argv);
 void set_proc_title(const char *format, ...);
 
+#define TIME_THIS(name)							\
+	void __tnt_time_##name(ev_tstamp *start)			\
+	{								\
+		ev_now_update();					\
+		ev_tstamp delay = ev_now() - *start;			\
+		if (ev_now() - *start > 0.1)				\
+			say_crit("%s delay too long %f", #name, delay);	\
+	}								\
+	ev_tstamp __tnt_start_##name					\
+	__attribute__((cleanup(__tnt_time_##name))) =			\
+		(ev_now_update(), ev_now())
+
 #endif /* TARANTOOL_H */
