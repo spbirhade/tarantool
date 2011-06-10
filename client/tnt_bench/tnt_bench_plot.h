@@ -1,8 +1,8 @@
-#ifndef TNT_STRESS_MEMCACHE_H_
-#define TNT_STRESS_MEMCACHE_H_
+#ifndef TNT_BENCH_PLOT_H_
+#define TNT_BENCH_PLOT_H_
 
 /*
- * Copyright (C) 2010 Mail.RU
+ * Copyright (C) 2011 Mail.RU
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,12 +26,7 @@
  * SUCH DAMAGE.
  */
 
-void
-stress_memcache_set(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
-
-void
-stress_memcache_get(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
+int
+tnt_bench_plot(tnt_bench_t * bench);
 
 #endif

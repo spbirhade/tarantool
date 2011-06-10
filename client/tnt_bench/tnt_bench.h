@@ -1,8 +1,8 @@
-#ifndef TNT_STRESS_H_
-#define TNT_STRESS_H_
+#ifndef TNT_BENCH_H_
+#define TNT_BENCH_H_
 
 /*
- * Copyright (C) 2010 Mail.RU
+ * Copyright (C) 2011 Mail.RU
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,34 +27,21 @@
  */
 
 typedef struct {
+	tnt_t * t;
+	tnt_bench_tests_t tests;
+	tnt_bench_opt_t * opt;
+} tnt_bench_t;
 
-	long long tm;
-	float rps;
+int
+tnt_bench_init(tnt_bench_t * bench, tnt_bench_opt_t * opt);
+	
+void
+tnt_bench_free(tnt_bench_t * bench);
 
-	void * ptr;
-
-} stress_stat_t;
-
-typedef void (*stressf_t)(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
-
-typedef struct {
-
-	int         group;
-	char      * name;
-	stressf_t   f;
-	int         bsize;
-	int         flags;
-
-} stress_t;
+int
+tnt_bench_connect(tnt_bench_t * bench);
 
 void
-stress_error(tnt_t * t, char * name);
-
-long long
-stress_time(void);
-
-void
-stress_end(long long start, int count, stress_stat_t * stat);
+tnt_bench_run(tnt_bench_t * bench);
 
 #endif

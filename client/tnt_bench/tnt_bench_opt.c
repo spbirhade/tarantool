@@ -1,8 +1,6 @@
-#ifndef TNT_STRESS_TEST_H_
-#define TNT_STRESS_TEST_H_
 
 /*
- * Copyright (C) 2010 Mail.RU
+ * Copyright (C) 2011 Mail.RU
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,24 +24,50 @@
  * SUCH DAMAGE.
  */
 
-void
-stress_ping(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <libtnt.h>
+
+#include <client/tnt_bench/tnt_bench_list.h>
+#include <client/tnt_bench/tnt_bench_opt.h>
 
 void
-stress_insert(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
+tnt_bench_opt_init(tnt_bench_opt_t * opt)
+{
+	opt->auth = TNT_AUTH_CHAP;
+	opt->proto = TNT_PROTO_RW;
+
+	opt->host = "localhost";
+	opt->port = 15312;
+
+	opt->id = "test";
+	opt->key = "1234567812345678";
+	opt->key_size = 16;
+	opt->mech = "PLAIN";
+
+	opt->color = 1;
+	opt->count = 1000;
+	opt->reps = 3;
+
+	opt->rbuf = 16384;
+	opt->sbuf = 16384;
+
+	opt->plot = 0;
+	opt->plot_dir = "benchmark";
+
+	opt->std = 0;
+	opt->std_memcache = 0;
+
+	tnt_bench_list_init(&opt->tests, 0);
+	tnt_bench_list_init(&opt->bufs, 0);
+}
 
 void
-stress_update(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
-
-void
-stress_select(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
-
-void
-stress_select_set(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat);
-
-#endif
+tnt_bench_opt_free(tnt_bench_opt_t * opt)
+{
+	tnt_bench_list_free(&opt->tests);
+	tnt_bench_list_free(&opt->bufs);
+}

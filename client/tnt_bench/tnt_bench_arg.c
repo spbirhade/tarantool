@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2010 Mail.RU
+ * Copyright (C) 2011 Mail.RU
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,71 +29,53 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <time.h>
-
 #include <libtnt.h>
 
-#include <client/tnt_stress/tnt_stress.h>
-#include <client/tnt_stress/tnt_stress_memcache.h>
+#include <client/tnt_bench/tnt_bench_arg.h>
 
 void
-stress_memcache_set(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat)
+tnt_bench_arg_init(tnt_bench_arg_t * arg,
+	tnt_bench_arg_cmd_t * cmds, int argc, char * argv[])
 {
-	(void)flags;
-
-	char * buf = malloc(bsize);
-	if (buf == NULL) {
-		printf("memory allocation of %d bytes failed\n", bsize);
-		return;
-	}
-
-	memset(buf, 'x', bsize);
-
-	int key;
-	long long start = stress_time();
-
-	for (key = 0 ; key < count ; key++) {
-
-		char keydesc[32];
-		snprintf(keydesc, sizeof(keydesc), "key_%d", key);
-
-		if (tnt_memcache_set(t, 0, 0, keydesc, buf, bsize) == -1)
-			stress_error(t, "set");
-	}
-
-	stress_end(start, count, stat);
-	free(buf);
+	arg->argc = argc;
+	arg->argv = argv;
+	arg->cmds = cmds;
+	arg->pos  = 0;
 }
 
-void
-stress_memcache_get(tnt_t * t,
-	int bsize, int count, int flags, stress_stat_t * stat)
+static tnt_bench_arg_cmd_t*
+tnt_bench_arg_cmp(tnt_bench_arg_t * arg, char * argument)
 {
-	(void)bsize;
-	(void)flags;
-
-	int key;
-	long long start = stress_time();
-
-	char keydesc[32];
-	char * keyptr[1] = { keydesc };
-
-	for (key = 0 ; key < count ; key++) {
-
-		snprintf(keydesc, sizeof(keydesc), "key_%d", key);
-
-		tnt_memcache_vals_t vals;
-		tnt_memcache_val_init(&vals);
-
-		if (tnt_memcache_get(t, false, 1, keyptr, &vals) == -1)
-			stress_error(t, "get");
-
-		tnt_memcache_val_free(&vals);
+	int iter = 0;
+	for (;arg->cmds[iter].name ; iter++) {
+		if (strcmp(arg->cmds[iter].name, argument) == 0)
+			return (&arg->cmds[iter]);
 	}
+	return NULL;
+}
 
-	stress_end(start, count, stat);
+int
+tnt_bench_arg(tnt_bench_arg_t * arg, char ** argp)
+{
+	tnt_bench_arg_cmd_t * cmd;
+	for (arg->pos++ ; arg->pos < arg->argc ; arg->pos++) {
+		cmd = tnt_bench_arg_cmp(arg, arg->argv[arg->pos]);
+		if (cmd == NULL) {
+			arg->argc = (arg->argc - arg->pos);
+			arg->argv = (arg->argv + arg->pos);
+			return TNT_BENCH_ARG_UNKNOWN;
+		}
+
+		if (cmd->arg == 0) {
+			*argp = NULL;
+			return cmd->token;
+		}
+
+		if ((arg->pos + 1) < arg->argc) {
+			*argp = arg->argv[++arg->pos];
+			return cmd->token;
+		} else
+			return TNT_BENCH_ARG_ERROR;
+	}
+	return TNT_BENCH_ARG_DONE;
 }
