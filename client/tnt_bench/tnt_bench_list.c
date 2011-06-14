@@ -48,12 +48,10 @@ tnt_bench_list_free(tnt_bench_list_t * list)
 	tnt_bench_list_node_t * current;
 	for (current = list->head ; current ; current = next) {
 		next = current->next;
-
 		if (list->alloc)
 			free(current->data);
 		free(current);
 	}
-
 	tnt_bench_list_init(list, list->alloc);
 }
 
@@ -62,19 +60,16 @@ tnt_bench_list_add(tnt_bench_list_t * list, void * data, int size)
 {
 	tnt_bench_list_node_t * new =
 			malloc(sizeof(tnt_bench_list_node_t));
-
 	if (new == NULL)
 		return NULL;
 
 	new->idx = list->count;
 	if (list->alloc) {
 		new->data = malloc(size);
-
 		if (new->data == NULL) {
 			free(new);
 			return NULL;
 		}
-
 		if (data)
 			memcpy(new->data, data, size);
 	} else
@@ -107,14 +102,12 @@ tnt_bench_list_del_node(tnt_bench_list_t * list, tnt_bench_list_node_t * node)
 	if (node == list->head) {
 		if (list->head == list->tail)
 			list->tail = node->next;
-
 		list->head = node->next;
 		if (node->next)
 			node->next->prev = NULL;
 	} else {
 		if (node == list->tail)
 			list->tail = node->prev;
-
 		node->prev->next = node->next;
 		if (node->next)
 			node->next->prev = node->prev;
@@ -122,9 +115,9 @@ tnt_bench_list_del_node(tnt_bench_list_t * list, tnt_bench_list_node_t * node)
 
 	list->size = list->size - node->size;
 	list->count--;
+
 	if (list->alloc)
 		free(node->data);
-
 	free(node);
 }
 

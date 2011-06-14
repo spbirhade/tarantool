@@ -27,35 +27,6 @@
  */
 
 void
-tnt_bench_cb_ping(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_insert(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_insert_ret(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_update(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_update_ret(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_select(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_memcache_set(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
-void
-tnt_bench_cb_memcache_get(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
+tnt_bench_cb_init(tnt_bench_funcs_t * funcs);
 
 #endif

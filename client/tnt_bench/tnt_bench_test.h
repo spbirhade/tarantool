@@ -26,9 +26,6 @@
  * SUCH DAMAGE.
  */
 
-typedef void (*tnt_benchf_t)(tnt_t * t,
-	int bsize, int count, tnt_bench_stat_t * stat);
-
 typedef struct _tnt_bench_test_buf_t tnt_bench_test_buf_t;
 typedef struct _tnt_bench_test_t tnt_bench_test_t;
 typedef struct _tnt_bench_tests_t tnt_bench_tests_t;
@@ -39,8 +36,7 @@ struct _tnt_bench_test_buf_t {
 };
 
 struct _tnt_bench_test_t {
-	char * name;
-	tnt_benchf_t func;
+	tnt_bench_func_t * func;
 	tnt_bench_list_t list;
 };
 
@@ -55,8 +51,8 @@ void
 tnt_bench_test_free(tnt_bench_tests_t * tests);
 
 tnt_bench_test_t*
-tnt_bench_test_add(tnt_bench_tests_t * tests, char * name,
-	tnt_benchf_t func);
+tnt_bench_test_add(tnt_bench_tests_t * tests,
+	tnt_bench_func_t * func);
 
 void
 tnt_bench_test_buf_add(tnt_bench_test_t * test, int buf);

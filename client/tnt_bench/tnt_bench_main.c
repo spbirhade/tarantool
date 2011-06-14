@@ -34,8 +34,10 @@
 #include <client/tnt_bench/tnt_bench_arg.h>
 #include <client/tnt_bench/tnt_bench_list.h>
 #include <client/tnt_bench/tnt_bench_stat.h>
+#include <client/tnt_bench/tnt_bench_func.h>
 #include <client/tnt_bench/tnt_bench_test.h>
 #include <client/tnt_bench/tnt_bench_opt.h>
+#include <client/tnt_bench/tnt_bench_cb.h>
 #include <client/tnt_bench/tnt_bench.h>
 
 static void
@@ -61,6 +63,7 @@ tnt_bench_usage(tnt_bench_opt_t * opts, char * name)
 	printf("  -A, --test-std                standart testing set (%d)\n", opts->std);
 	printf("  -T, --test [name]             test name\n");
 	printf("  -B, --test-buf [buf]          test buffer size\n");
+	printf("  -L, --test-list               list available tests\n");
 	printf("  -C, --count [count]           request count (%d)\n", opts->count);
 	printf("  -R, --rep [count]             count of request repeats (%d)\n", opts->reps);
 	printf("  -P, --plot                    generate gnuplot files (%d)\n", opts->plot);
@@ -68,7 +71,19 @@ tnt_bench_usage(tnt_bench_opt_t * opts, char * name)
 
 	printf("other:\n");
 	printf("  -b, --color [color]           color output (%d)\n", opts->color);
-	printf("  -h, --help                    show usage\n");
+	printf("  -h, --help                    show usage\n\n");
+
+	printf("examples:\n");
+	printf("  # standart iproto benchmark\n");
+	printf("  tnt_bench --test-std\n\n");
+
+	printf("  # benchmark insert, select for 48, 96, 102 buffers\n");
+	printf("  # for 10000 counts * 10 repeats\n");
+	printf("  tnt_bench --test insert --test select -B 48 -B 96 -B 102 -C 10000 -R 10\n\n");
+
+	printf("  # benchmark memcache protocol for 32, 64, 128 bytes payload\n");
+	printf("  # with plot generation\n");
+	printf("  tnt_bench -t none -p 33013 -T memcache-set -B 32 -B 64 -B 128 -C 10000 -R 5 -P\n");
 
 	exit(1);
 }
@@ -102,6 +117,8 @@ tnt_bench_arg_cmd_t cmds[] =
 	{ "--test",         1, TNT_BENCH_ARG_TEST         },
 	{ "-B",             1, TNT_BENCH_ARG_TEST_BUF     },
 	{ "--test-buf",     1, TNT_BENCH_ARG_TEST_BUF     },
+	{ "-L",             0, TNT_BENCH_ARG_TEST_LIST    },
+	{ "--test-list",    0, TNT_BENCH_ARG_TEST_LIST    },
 	{ "-C",             1, TNT_BENCH_ARG_COUNT        },
 	{ "--count",        1, TNT_BENCH_ARG_COUNT        },
 	{ "-R",             1, TNT_BENCH_ARG_REP          },
@@ -116,7 +133,8 @@ tnt_bench_arg_cmd_t cmds[] =
 };
 
 static void
-tnt_bench_args(tnt_bench_opt_t * opts, int argc, char * argv[])
+tnt_bench_args(tnt_bench_funcs_t * funcs,
+	tnt_bench_opt_t * opts, int argc, char * argv[])
 {
 	tnt_bench_arg_t args;
 	tnt_bench_arg_init(&args, cmds, argc, argv);
@@ -174,6 +192,16 @@ tnt_bench_args(tnt_bench_opt_t * opts, int argc, char * argv[])
 		case TNT_BENCH_ARG_TEST_BUF:
 			tnt_bench_list_add(&opts->bufs, argp, 0);
 			break;
+		case TNT_BENCH_ARG_TEST_LIST:
+			printf("available tests:\n");
+			tnt_bench_list_node_t * iter;
+			TNT_BENCH_LIST_FOREACH(&funcs->list, iter) {
+				tnt_bench_func_t * func =
+					TNT_BENCH_LIST_VALUE(iter, tnt_bench_func_t*);
+				printf("  %s\n", func->name);
+			}
+			exit(0);
+			break;
 		case TNT_BENCH_ARG_COUNT:
 			opts->count = atoi(argp);
 			break;
@@ -212,14 +240,18 @@ tnt_bench_error(tnt_bench_t * bench, char * name)
 int
 main(int argc, char * argv[])
 {
+	tnt_bench_funcs_t funcs;
+	tnt_bench_func_init(&funcs);
+	tnt_bench_cb_init(&funcs);
+
 	tnt_bench_opt_t opts;
 	tnt_bench_opt_init(&opts);
 
-	tnt_bench_args(&opts, argc, argv);
+	tnt_bench_args(&funcs, &opts, argc, argv);
 	printf("tarantool benchmark.\n\n");
 
 	tnt_bench_t bench;
-	if (tnt_bench_init(&bench, &opts) == -1)
+	if (tnt_bench_init(&bench, &funcs, &opts) == -1)
 		tnt_bench_error(&bench, "tnt_bench_init");
 
 	if (tnt_bench_connect(&bench) == -1)
@@ -232,6 +264,8 @@ main(int argc, char * argv[])
 	}
 
 	tnt_bench_run(&bench);
+
 	tnt_bench_free(&bench);
+	tnt_bench_func_free(&funcs);
 	return 0;
 }

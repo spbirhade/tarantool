@@ -2,6 +2,7 @@ tarantool_client_install("tnt_bench"
 	tnt_bench_list.c
 	tnt_bench_main.c
 	tnt_bench_arg.c
+	tnt_bench_func.c
 	tnt_bench_test.c
 	tnt_bench_stat.c
 	tnt_bench_cb.c

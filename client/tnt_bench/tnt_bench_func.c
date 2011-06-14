@@ -1,5 +1,3 @@
-#ifndef TNT_BENCH_ARG_H_
-#define TNT_BENCH_ARG_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -26,53 +24,63 @@
  * SUCH DAMAGE.
  */
 
-enum {
-	TNT_BENCH_ARG_DONE,
-	TNT_BENCH_ARG_ERROR,
-	TNT_BENCH_ARG_UNKNOWN,
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-	TNT_BENCH_ARG_SERVER_HOST,
-	TNT_BENCH_ARG_SERVER_PORT,
-	TNT_BENCH_ARG_BUF_RECV,
-	TNT_BENCH_ARG_BUF_SEND,
+#include <libtnt.h>
 
-	TNT_BENCH_ARG_AUTH_TYPE,
-	TNT_BENCH_ARG_AUTH_ID,
-	TNT_BENCH_ARG_AUTH_KEY,
-	TNT_BENCH_ARG_AUTH_MECH,
-	
-	TNT_BENCH_ARG_TEST_STD,
-	TNT_BENCH_ARG_TEST_STD_MC,
-	TNT_BENCH_ARG_TEST,
-	TNT_BENCH_ARG_TEST_BUF,
-	TNT_BENCH_ARG_TEST_LIST,
-	TNT_BENCH_ARG_COUNT,
-	TNT_BENCH_ARG_REP,
-	TNT_BENCH_ARG_COLOR,
-	TNT_BENCH_ARG_PLOT,
-	TNT_BENCH_ARG_PLOT_DIR,
-
-	TNT_BENCH_ARG_HELP
-};
-
-typedef struct {
-	char * name;
-	int arg;
-	int token;
-} tnt_bench_arg_cmd_t;
-
-typedef struct {
-	int pos;
-	int argc;
-	char ** argv;
-	tnt_bench_arg_cmd_t * cmds;
-} tnt_bench_arg_t;
+#include <client/tnt_bench/tnt_bench_list.h>
+#include <client/tnt_bench/tnt_bench_stat.h>
+#include <client/tnt_bench/tnt_bench_func.h>
 
 void
-tnt_bench_arg_init(tnt_bench_arg_t * arg,
-	tnt_bench_arg_cmd_t * cmds, int argc, char * argv[]);
+tnt_bench_func_init(tnt_bench_funcs_t * funcs)
+{
+	tnt_bench_list_init(&funcs->list, 1);
+}
 
-int
-tnt_bench_arg(tnt_bench_arg_t * arg, char ** argp);
+void
+tnt_bench_func_free(tnt_bench_funcs_t * funcs)
+{
+	tnt_bench_list_node_t * i;
+	TNT_BENCH_LIST_FOREACH(&funcs->list, i) {
+		tnt_bench_func_t * f =
+			TNT_BENCH_LIST_VALUE(i, tnt_bench_func_t*);
+		free(f->name);
+	}
+	tnt_bench_list_free(&funcs->list);
+}
 
-#endif
+tnt_bench_func_t*
+tnt_bench_func_add(tnt_bench_funcs_t * funcs, char * name,
+	tnt_benchf_t func)
+{
+	tnt_bench_func_t * f =
+		tnt_bench_list_alloc(&funcs->list, sizeof(tnt_bench_func_t));
+	if (f == NULL)
+		return NULL;
+
+	f->name = strdup(name);
+	if (f->name == NULL) {
+		tnt_bench_list_del_last(&funcs->list);
+		return NULL;
+	}
+
+	f->func = func;
+	return f;
+}
+
+tnt_bench_func_t*
+tnt_bench_func_match(tnt_bench_funcs_t * funcs, char * name)
+{
+	tnt_bench_list_node_t * i;
+	TNT_BENCH_LIST_FOREACH(&funcs->list, i) {
+		tnt_bench_func_t * f =
+			TNT_BENCH_LIST_VALUE(i, tnt_bench_func_t*);
+		if (!strcmp(f->name, name))
+			return f;
+	}
+	return NULL;
+}

@@ -33,6 +33,7 @@
 
 #include <client/tnt_bench/tnt_bench_list.h>
 #include <client/tnt_bench/tnt_bench_stat.h>
+#include <client/tnt_bench/tnt_bench_func.h>
 #include <client/tnt_bench/tnt_bench_test.h>
 #include <client/tnt_bench/tnt_bench_opt.h>
 #include <client/tnt_bench/tnt_bench.h>
@@ -40,9 +41,12 @@
 #include <client/tnt_bench/tnt_bench_plot.h>
 
 int
-tnt_bench_init(tnt_bench_t * bench, tnt_bench_opt_t * opt)
+tnt_bench_init(tnt_bench_t * bench,
+	tnt_bench_funcs_t * funcs, tnt_bench_opt_t * opt)
 {
+	bench->funcs = funcs;
 	bench->opt = opt;
+
 	tnt_bench_test_init(&bench->tests);
 
 	bench->t = tnt_init(opt->proto, opt->rbuf, opt->sbuf);
@@ -67,48 +71,52 @@ tnt_bench_free(tnt_bench_t * bench)
 static void
 tnt_bench_set_std(tnt_bench_t * bench)
 {
+	tnt_bench_func_t * f;
 	tnt_bench_test_t * t;
-	t = tnt_bench_test_add(&bench->tests, "insert",
-		tnt_bench_cb_insert);
+
+	f = tnt_bench_func_match(bench->funcs, "insert");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
 
-	t = tnt_bench_test_add(&bench->tests, "insert-ret",
-		tnt_bench_cb_insert_ret);
+	f = tnt_bench_func_match(bench->funcs, "insert-ret");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
 
-	t = tnt_bench_test_add(&bench->tests, "update",
-		tnt_bench_cb_update);
+	f = tnt_bench_func_match(bench->funcs, "update");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
 
-	t = tnt_bench_test_add(&bench->tests, "update-ret",
-		tnt_bench_cb_update_ret);
+	f = tnt_bench_func_match(bench->funcs, "update-ret");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
 
-	t = tnt_bench_test_add(&bench->tests, "select",
-		tnt_bench_cb_update_ret);
+	f = tnt_bench_func_match(bench->funcs, "select");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 0);
 }
 
 static void
 tnt_bench_set_std_memcache(tnt_bench_t * bench)
 {
+	tnt_bench_func_t * f;
 	tnt_bench_test_t * t;
-	t = tnt_bench_test_add(&bench->tests, "set",
-		tnt_bench_cb_memcache_set);
+
+	f = tnt_bench_func_match(bench->funcs, "memcache-set");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
 
-	t = tnt_bench_test_add(&bench->tests, "get",
-		tnt_bench_cb_memcache_get);
+	f = tnt_bench_func_match(bench->funcs, "memcache-get");
+	t = tnt_bench_test_add(&bench->tests, f);
 	tnt_bench_test_buf_add(t, 32);
 	tnt_bench_test_buf_add(t, 64);
 	tnt_bench_test_buf_add(t, 128);
@@ -123,45 +131,21 @@ tnt_bench_connect(tnt_bench_t * bench)
 void
 tnt_bench_run(tnt_bench_t * bench)
 {
-	/* if supplied, using specified tests */
+	/* using specified tests, if supplied */
 	if (TNT_BENCH_LIST_COUNT(&bench->opt->tests)) {
 		tnt_bench_list_node_t * iter;
 		TNT_BENCH_LIST_FOREACH(&bench->opt->tests, iter) {
 			char * name = TNT_BENCH_LIST_VALUE(iter, char*);
-			tnt_benchf_t f = NULL;
-			if (!strcmp(name, "insert"))
-				f = tnt_bench_cb_insert;
-			else
-			if (!strcmp(name, "insert-ret"))
-				f = tnt_bench_cb_insert_ret;
-			else
-			if (!strcmp(name, "update"))
-				f = tnt_bench_cb_update;
-			else
-			if (!strcmp(name, "update-ret"))
-				f = tnt_bench_cb_update_ret;
-			else
-			if (!strcmp(name, "select"))
-				f = tnt_bench_cb_select;
-			else
-			if (!strcmp(name, "ping"))
-				f = tnt_bench_cb_ping;
-			else
-			if (!strcmp(name, "memcache-set"))
-				f = tnt_bench_cb_memcache_set;
-			else
-			if (!strcmp(name, "memcache-get"))
-				f = tnt_bench_cb_memcache_get;
-
-			if (f == NULL) {
-				printf("available tests:\n");
-				printf("  insert, insert-ret, update, update-ret update, update-ret, select, ping\n"
-				       "  memcache-set, memcache-get\n");
-				exit(1);
+			tnt_bench_func_t * func = 
+				tnt_bench_func_match(bench->funcs, name);
+			if (func == NULL) {
+				printf("unknown test: \"%s\", try --test-list\n", name);
+				return;
 			}
 			tnt_bench_test_t * t =
-				tnt_bench_test_add(&bench->tests, name, f);
-			if (!strcmp(name, "select")) 
+				tnt_bench_test_add(&bench->tests, func);
+			if (!strcmp(name, "select") || 
+			    !strcmp(name, "ping") )
 				tnt_bench_test_buf_add(t, 0);
 		}
 
@@ -193,9 +177,9 @@ tnt_bench_run(tnt_bench_t * bench)
 			TNT_BENCH_LIST_VALUE(i, tnt_bench_test_t*);
 
 		if (bench->opt->color)
-			printf("\033[22;33m%s\033[0m\n", t->name);
+			printf("\033[22;33m%s\033[0m\n", t->func->name);
 		else
-			printf("%s\n", t->name);
+			printf("%s\n", t->func->name);
 
 		tnt_bench_list_node_t * j;
 		TNT_BENCH_LIST_FOREACH(&t->list, j) {
@@ -208,7 +192,7 @@ tnt_bench_run(tnt_bench_t * bench)
 
 			int r;
 			for (r = 0 ; r < bench->opt->reps ; r++) {
-				t->func(bench->t, b->buf, bench->opt->count, &stats[r]);
+				t->func->func(bench->t, b->buf, bench->opt->count, &stats[r]);
 				printf("<%.2f %.2f> ", stats[r].rps, (float)stats[r].tm / 1000);
 				fflush(stdout);
 			}

@@ -1,5 +1,5 @@
-#ifndef TNT_BENCH_ARG_H_
-#define TNT_BENCH_ARG_H_
+#ifndef TNT_BENCH_FUNC_H_
+#define TNT_BENCH_FUNC_H_
 
 /*
  * Copyright (C) 2011 Mail.RU
@@ -26,53 +26,32 @@
  * SUCH DAMAGE.
  */
 
-enum {
-	TNT_BENCH_ARG_DONE,
-	TNT_BENCH_ARG_ERROR,
-	TNT_BENCH_ARG_UNKNOWN,
+typedef void (*tnt_benchf_t)(tnt_t * t,
+	int bsize, int count, tnt_bench_stat_t * stat);
 
-	TNT_BENCH_ARG_SERVER_HOST,
-	TNT_BENCH_ARG_SERVER_PORT,
-	TNT_BENCH_ARG_BUF_RECV,
-	TNT_BENCH_ARG_BUF_SEND,
+typedef struct _tnt_bench_func_t  tnt_bench_func_t;
+typedef struct _tnt_bench_funcs_t tnt_bench_funcs_t;
 
-	TNT_BENCH_ARG_AUTH_TYPE,
-	TNT_BENCH_ARG_AUTH_ID,
-	TNT_BENCH_ARG_AUTH_KEY,
-	TNT_BENCH_ARG_AUTH_MECH,
-	
-	TNT_BENCH_ARG_TEST_STD,
-	TNT_BENCH_ARG_TEST_STD_MC,
-	TNT_BENCH_ARG_TEST,
-	TNT_BENCH_ARG_TEST_BUF,
-	TNT_BENCH_ARG_TEST_LIST,
-	TNT_BENCH_ARG_COUNT,
-	TNT_BENCH_ARG_REP,
-	TNT_BENCH_ARG_COLOR,
-	TNT_BENCH_ARG_PLOT,
-	TNT_BENCH_ARG_PLOT_DIR,
-
-	TNT_BENCH_ARG_HELP
+struct _tnt_bench_func_t {
+	char * name;
+	tnt_benchf_t func;
 };
 
-typedef struct {
-	char * name;
-	int arg;
-	int token;
-} tnt_bench_arg_cmd_t;
-
-typedef struct {
-	int pos;
-	int argc;
-	char ** argv;
-	tnt_bench_arg_cmd_t * cmds;
-} tnt_bench_arg_t;
+struct _tnt_bench_funcs_t {
+	tnt_bench_list_t list;
+};
 
 void
-tnt_bench_arg_init(tnt_bench_arg_t * arg,
-	tnt_bench_arg_cmd_t * cmds, int argc, char * argv[]);
+tnt_bench_func_init(tnt_bench_funcs_t * funcs);
 
-int
-tnt_bench_arg(tnt_bench_arg_t * arg, char ** argp);
+void
+tnt_bench_func_free(tnt_bench_funcs_t * funcs);
+
+tnt_bench_func_t*
+tnt_bench_func_add(tnt_bench_funcs_t * funcs, char * name,
+	tnt_benchf_t func);
+
+tnt_bench_func_t*
+tnt_bench_func_match(tnt_bench_funcs_t * funcs, char * name);
 
 #endif

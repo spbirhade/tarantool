@@ -32,6 +32,8 @@
 #include <libtnt.h>
 
 #include <client/tnt_bench/tnt_bench_stat.h>
+#include <client/tnt_bench/tnt_bench_list.h>
+#include <client/tnt_bench/tnt_bench_func.h>
 #include <client/tnt_bench/tnt_bench_cb.h>
 
 static void
@@ -68,7 +70,7 @@ tnt_bench_cb_recv(tnt_t * t, int count)
 	}
 }
 
-void
+static void
 tnt_bench_cb_ping(tnt_t * t, int bsize __attribute__((unused)),
 	int count, tnt_bench_stat_t * stat)
 {
@@ -117,7 +119,7 @@ tnt_bench_cb_insert_do(tnt_t * t, char * name,
 	free(buf);
 }
 
-void
+static void
 tnt_bench_cb_insert(tnt_t * t,
 	int bsize, int count, tnt_bench_stat_t * stat)
 {
@@ -125,7 +127,7 @@ tnt_bench_cb_insert(tnt_t * t,
 		bsize, count, 0, stat);
 }
 
-void
+static void
 tnt_bench_cb_insert_ret(tnt_t * t,
 	int bsize, int count, tnt_bench_stat_t * stat)
 {
@@ -164,7 +166,7 @@ tnt_bench_cb_update_do(tnt_t * t, char * name,
 	free(buf);
 }
 
-void
+static void
 tnt_bench_cb_update(tnt_t * t,
 	int bsize, int count, tnt_bench_stat_t * stat)
 {
@@ -172,7 +174,7 @@ tnt_bench_cb_update(tnt_t * t,
 		bsize, count, 0, stat);
 }
 
-void
+static void
 tnt_bench_cb_update_ret(tnt_t * t,
 	int bsize, int count, tnt_bench_stat_t * stat)
 {
@@ -180,7 +182,7 @@ tnt_bench_cb_update_ret(tnt_t * t,
 		bsize, count, TNT_PROTO_FLAG_RETURN, stat);
 }
 
-void
+static void
 tnt_bench_cb_select(tnt_t * t, int bsize __attribute__((unused)),
 	int count, tnt_bench_stat_t * stat)
 {
@@ -204,7 +206,7 @@ tnt_bench_cb_select(tnt_t * t, int bsize __attribute__((unused)),
 	tnt_bench_stat_stop(stat);
 }
 
-void
+static void
 tnt_bench_cb_memcache_set(tnt_t * t,
 	int bsize, int count, tnt_bench_stat_t * stat)
 {
@@ -230,7 +232,7 @@ tnt_bench_cb_memcache_set(tnt_t * t,
 	free(buf);
 }
 
-void
+static void
 tnt_bench_cb_memcache_get(tnt_t * t, int bsize __attribute__((unused)),
 	int count, tnt_bench_stat_t * stat)
 {
@@ -253,4 +255,17 @@ tnt_bench_cb_memcache_get(tnt_t * t, int bsize __attribute__((unused)),
 	}
 
 	tnt_bench_stat_stop(stat);
+}
+
+void
+tnt_bench_cb_init(tnt_bench_funcs_t * funcs)
+{
+	tnt_bench_func_add(funcs, "insert", tnt_bench_cb_insert);
+	tnt_bench_func_add(funcs, "insert-ret", tnt_bench_cb_insert_ret);
+	tnt_bench_func_add(funcs, "update", tnt_bench_cb_update);
+	tnt_bench_func_add(funcs, "update-ret", tnt_bench_cb_update_ret);
+	tnt_bench_func_add(funcs, "select", tnt_bench_cb_select);
+	tnt_bench_func_add(funcs, "ping", tnt_bench_cb_ping);
+	tnt_bench_func_add(funcs, "memcache-set", tnt_bench_cb_memcache_set);
+	tnt_bench_func_add(funcs, "memcache-get", tnt_bench_cb_memcache_get);
 }

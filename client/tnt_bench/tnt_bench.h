@@ -28,12 +28,14 @@
 
 typedef struct {
 	tnt_t * t;
+	tnt_bench_funcs_t * funcs;
 	tnt_bench_tests_t tests;
 	tnt_bench_opt_t * opt;
 } tnt_bench_t;
 
 int
-tnt_bench_init(tnt_bench_t * bench, tnt_bench_opt_t * opt);
+tnt_bench_init(tnt_bench_t * bench,
+	tnt_bench_funcs_t * funcs, tnt_bench_opt_t * opt);
 	
 void
 tnt_bench_free(tnt_bench_t * bench);

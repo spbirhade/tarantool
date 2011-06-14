@@ -33,6 +33,7 @@
 
 #include <client/tnt_bench/tnt_bench_list.h>
 #include <client/tnt_bench/tnt_bench_stat.h>
+#include <client/tnt_bench/tnt_bench_func.h>
 #include <client/tnt_bench/tnt_bench_test.h>
 
 void
@@ -48,26 +49,18 @@ tnt_bench_test_free(tnt_bench_tests_t * tests)
 	TNT_BENCH_LIST_FOREACH(&tests->list, i) {
 		tnt_bench_test_t * t =
 			TNT_BENCH_LIST_VALUE(i, tnt_bench_test_t*);
-		free(t->name);
 		tnt_bench_list_free(&t->list);
 	}
 	tnt_bench_list_free(&tests->list);
 }
 
 tnt_bench_test_t*
-tnt_bench_test_add(tnt_bench_tests_t * tests,
-	char * name, tnt_benchf_t func)
+tnt_bench_test_add(tnt_bench_tests_t * tests, tnt_bench_func_t * func)
 {
 	tnt_bench_test_t * test =
 		tnt_bench_list_alloc(&tests->list, sizeof(tnt_bench_test_t));
 	if (test == NULL)
 		return NULL;
-
-	test->name = strdup(name);
-	if (test->name == NULL) {
-		tnt_bench_list_del_last(&tests->list);
-		return NULL;
-	}
 
 	test->func = func;
 	tnt_bench_list_init(&test->list, 1);
