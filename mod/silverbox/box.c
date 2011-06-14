@@ -236,6 +236,7 @@ tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple)
 static int __noinline__
 prepare_replace(struct box_txn *txn, size_t cardinality, struct tbuf *data)
 {
+	TIME_THIS(prepare_replace);
 	assert(data != NULL);
 	if (cardinality == 0)
 		box_raise(ERR_CODE_ILLEGAL_PARAMS, "cardinality can't be equal to 0");
@@ -437,6 +438,7 @@ do_field_splice(struct tbuf *field, void *args_data, u32 args_data_size)
 static int __noinline__
 prepare_update_fields(struct box_txn *txn, struct tbuf *data)
 {
+	TIME_THIS(prepare_update_fields);
 	struct tbuf **fields;
 	void *field;
 	int i;
@@ -561,6 +563,7 @@ tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple)
 static int __noinline__
 process_select(struct box_txn *txn, u32 limit, u32 offset, struct tbuf *data)
 {
+	TIME_THIS(process_select);
 	struct box_tuple *tuple;
 	uint32_t *found;
 	u32 count = read_u32(data);
@@ -638,6 +641,7 @@ end:
 static int __noinline__
 prepare_delete(struct box_txn *txn, void *key)
 {
+	TIME_THIS(prepare_delete);
 	txn->old_tuple = txn->index->find(txn->index, key);
 
 	if (txn->old_tuple == NULL) {
@@ -949,6 +953,7 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 	}
 
 	if (ret_code == -1) {
+		TIME_THIS(wal_write);
 		if (!txn->in_recover) {
 			fiber_peer_name(fiber); /* fill the cookie */
 			struct tbuf *t = tbuf_alloc(fiber->pool);
