@@ -46,6 +46,7 @@ configuration:
   primary_port: "33013"
   secondary_port: "33014"
   too_long_threshold: "0.5"
+  trace_long_ops: "0"
   custom_proc_title: (null)
   memcached: "0"
   memcached_namespace: "23"

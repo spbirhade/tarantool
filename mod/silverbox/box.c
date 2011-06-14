@@ -167,9 +167,10 @@ field_print(struct tbuf *buf, void *f)
 
 }
 
-static void
+static u32
 tuple_print(struct tbuf *buf, uint8_t cardinality, void *f)
 {
+	void *start = f;
 	tbuf_printf(buf, "<");
 
 	for (size_t i = 0; i < cardinality; i++, f = next_field(f)) {
@@ -183,6 +184,8 @@ tuple_print(struct tbuf *buf, uint8_t cardinality, void *f)
 	}
 
 	tbuf_printf(buf, ">");
+
+	return f - start;
 }
 
 static struct box_tuple *
@@ -734,6 +737,115 @@ txn_abort(struct box_txn *txn)
 		rollback_replace(txn);
 }
 
+static void
+box_req_sprint(struct tbuf *buf, u32 op, struct tbuf *req)
+{
+	u32 n, key_len;
+	void *key;
+	u32 cardinality, field_no;
+	u32 flags;
+	u32 op_cnt;
+	u32 index, offset, limit, count;
+
+	n = read_u32(req);
+	tbuf_printf(buf, "%s n:%i ", messages_strs[op], n);
+
+	switch (op) {
+	case SELECT:
+		index = read_u32(req);
+		offset = read_u32(req);
+		limit = read_u32(req);
+		count = read_u32(req);
+		tbuf_printf(buf, "index:%i offset:%i limit:%i count:%i ", index, offset, limit, count);
+		while (count--) {
+			cardinality = read_u32(req);
+			u32 len = tuple_print(buf, cardinality, req->data);
+			tbuf_peek(req, len);
+		}
+		break;
+	case INSERT:
+		flags = read_u32(req);
+		cardinality = read_u32(req);
+		if (req->len != valid_tuple(req, cardinality))
+		tuple_print(buf, cardinality, req->data);
+			abort();
+		break;
+
+	case DELETE:
+		key_len = read_u32(req);
+		key = read_field(req);
+		if (req->len != 0)
+			abort();
+		tuple_print(buf, key_len, key);
+		break;
+
+	case UPDATE_FIELDS:
+		flags = read_u32(req);
+		key_len = read_u32(req);
+		key = read_field(req);
+		op_cnt = read_u32(req);
+
+		tbuf_printf(buf, "flags:%08X ", flags);
+		tuple_print(buf, key_len, key);
+
+		while (op_cnt-- > 0) {
+			field_no = read_u32(req);
+			u8 op = read_u8(req);
+			void *arg = read_field(req);
+
+			tbuf_printf(buf, " [field_no:%i op:", field_no);
+			switch (op) {
+			case 0:
+				tbuf_printf(buf, "set ");
+				break;
+			case 1:
+				tbuf_printf(buf, "add ");
+				break;
+			case 2:
+				tbuf_printf(buf, "and ");
+				break;
+			case 3:
+				tbuf_printf(buf, "xor ");
+				break;
+			case 4:
+				tbuf_printf(buf, "or ");
+				break;
+			}
+			tuple_print(buf, 1, arg);
+			tbuf_printf(buf, "] ");
+		}
+		break;
+	default:
+		tbuf_printf(buf, "unknown op %" PRIi32, op);
+	}
+}
+
+static void
+box_xlog_sprint(struct tbuf *buf, const struct tbuf *t)
+{
+	struct row_v11 *row = row_v11(t);
+
+	struct tbuf *b = palloc(fiber->pool, sizeof(*b));
+	b->data = row->data;
+	b->len = row->len;
+	u16 tag, op;
+	u64 cookie;
+	struct sockaddr_in *peer = (void *)&cookie;
+
+	tbuf_printf(buf, "lsn:%" PRIi64 " ", row->lsn);
+
+	say_debug("b->len:%" PRIu32, b->len);
+
+	tag = read_u16(b);
+	cookie = read_u64(b);
+
+	tbuf_printf(buf, "tm:%.3f t:%" PRIu16 " %s:%d",
+		    row->tm, tag, inet_ntoa(peer->sin_addr), ntohs(peer->sin_port));
+
+	op = read_u16(b);
+	box_req_sprint(buf, op, b);
+}
+
 static bool
 op_is_select(u32 op)
 {
@@ -745,9 +857,12 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 {
 	u32 cardinality;
 	int ret_code;
-	struct tbuf req = { .data = data->data, .len = data->len };
+	struct tbuf orig_req, req = { .data = data->data, .len = data->len, .size = data->len };
 	int saved_iov_cnt = fiber->iov_cnt;
 	ev_tstamp start = ev_now(), stop;
+
+	if (unlikely(cfg.trace_long_ops))
+		memcpy(&orig_req, &req, sizeof(req));
 
 	TIME_THIS(box_dispach);
 
@@ -818,7 +933,8 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 				box_raise(ERR_CODE_ILLEGAL_PARAMS, "index is invalid");
 
 			stat_collect(stat_base, op, 1);
-			return process_select(txn, limit, offset, data);
+			ret_code = process_select(txn, limit, offset, data);
+			break;
 		}
 
 	case UPDATE_FIELDS:
@@ -829,7 +945,7 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 
 	default:
 		say_error("silverbox_dispach: unsupported command = %" PRIi32 "", op);
-		return ERR_CODE_ILLEGAL_PARAMS;
+		ret_code = ERR_CODE_ILLEGAL_PARAMS;
 	}
 
 	if (ret_code == -1) {
@@ -848,12 +964,25 @@ box_dispach(struct box_txn *txn, enum box_mode mode, u16 op, struct tbuf *data)
 		}
 		txn_commit(txn);
 
-		stop = ev_now();
-		if (stop - start > cfg.too_long_threshold)
-			say_warn("too long %s: %.3f sec", messages_strs[op], stop - start);
-		return 0;
+		if (!cfg.trace_long_ops) {
+			stop = ev_now();
+			if (stop - start > cfg.too_long_threshold)
+				say_warn("too long %s: %.3f sec", messages_strs[op], stop - start);
+		}
+		ret_code = 0;
 	}
 
+	if (unlikely(cfg.trace_long_ops)) {
+		ev_now_update();
+		stop = ev_now();
+		if (stop - start > cfg.too_long_threshold) {
+			struct tbuf *sreq = tbuf_alloc(fiber->pool);
+			box_req_sprint(sreq, op, &orig_req);
+			say_warn("too long %.*s: %.3f sec",
+				 (int)sreq->len, (char *)sreq->data,
+				 stop - start);
+		}
+	}
 	return ret_code;
 
       abort:
@@ -922,97 +1051,6 @@ namespace_expire(void *data)
 			delay = 1;
 		fiber_sleep(delay);
 	}
-}
-
-
-static int
-box_xlog_sprint(struct tbuf *buf, const struct tbuf *t)
-{
-	struct row_v11 *row = row_v11(t);
-
-	struct tbuf *b = palloc(fiber->pool, sizeof(*b));
-	b->data = row->data;
-	b->len = row->len;
-	u16 tag, op;
-	u64 cookie;
-	struct sockaddr_in *peer = (void *)&cookie;
-
-	u32 n, key_len;
-	void *key;
-	u32 cardinality, field_no;
-	u32 flags;
-	u32 op_cnt;
-
-	tbuf_printf(buf, "lsn:%" PRIi64 " ", row->lsn);
-
-	say_debug("b->len:%" PRIu32, b->len);
-
-	tag = read_u16(b);
-	cookie = read_u64(b);
-	op = read_u16(b);
-	n = read_u32(b);
-
-	tbuf_printf(buf, "tm:%.3f t:%" PRIu16 " %s:%d %s n:%i",
-		    row->tm, tag, inet_ntoa(peer->sin_addr), ntohs(peer->sin_port),
-		    messages_strs[op], n);
-
-	switch (op) {
-	case INSERT:
-		flags = read_u32(b);
-		cardinality = read_u32(b);
-		if (b->len != valid_tuple(b, cardinality))
-			abort();
-		tuple_print(buf, cardinality, b->data);
-		break;
-
-	case DELETE:
-		key_len = read_u32(b);
-		key = read_field(b);
-		if (b->len != 0)
-			abort();
-		tuple_print(buf, key_len, key);
-		break;
-
-	case UPDATE_FIELDS:
-		flags = read_u32(b);
-		key_len = read_u32(b);
-		key = read_field(b);
-		op_cnt = read_u32(b);
-
-		tbuf_printf(buf, "flags:%08X ", flags);
-		tuple_print(buf, key_len, key);
-
-		while (op_cnt-- > 0) {
-			field_no = read_u32(b);
-			u8 op = read_u8(b);
-			void *arg = read_field(b);
-
-			tbuf_printf(buf, " [field_no:%i op:", field_no);
-			switch (op) {
-			case 0:
-				tbuf_printf(buf, "set ");
-				break;
-			case 1:
-				tbuf_printf(buf, "add ");
-				break;
-			case 2:
-				tbuf_printf(buf, "and ");
-				break;
-			case 3:
-				tbuf_printf(buf, "xor ");
-				break;
-			case 4:
-				tbuf_printf(buf, "or ");
-				break;
-			}
-			tuple_print(buf, 1, arg);
-			tbuf_printf(buf, "] ");
-		}
-		break;
-	default:
-		tbuf_printf(buf, "unknown wal op %" PRIi32, op);
-	}
-	return 0;
 }
 
 struct tbuf *
@@ -1126,10 +1164,9 @@ static int
 xlog_print(struct recovery_state *r __unused__, struct tbuf *t)
 {
 	struct tbuf *out = tbuf_alloc(t->pool);
-	int res = box_xlog_sprint(out, t);
-	if (res >= 0)
-		printf("%*s\n", (int)out->len, (char *)out->data);
-	return res;
+	box_xlog_sprint(out, t);
+	printf("%*s\n", (int)out->len, (char *)out->data);
+	return 0;
 }
 
 static void

@@ -64,7 +64,7 @@ char *binary_filename;
 struct tarantool_cfg cfg;
 struct recovery_state *recovery_state;
 
-bool init_storage, booting = true;
+bool init_storage = false, booting = true;
 
 extern int daemonize(int nochdir, int noclose);
 void out_warning(int v, char *format, ...);

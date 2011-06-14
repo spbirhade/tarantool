@@ -49,6 +49,7 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->primary_port = 0;
 	c->secondary_port = 0;
 	c->too_long_threshold = 0.5;
+	c->trace_long_ops = 0;
 	c->custom_proc_title = NULL;
 	c->memcached = 0;
 	c->memcached_namespace = 23;
@@ -154,6 +155,9 @@ static NameAtom _name__secondary_port[] = {
 };
 static NameAtom _name__too_long_threshold[] = {
 	{ "too_long_threshold", -1, NULL }
+};
+static NameAtom _name__trace_long_ops[] = {
+	{ "trace_long_ops", -1, NULL }
 };
 static NameAtom _name__custom_proc_title[] = {
 	{ "custom_proc_title", -1, NULL }
@@ -526,6 +530,18 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 		if ( (dbl == 0 || dbl == -HUGE_VAL || dbl == HUGE_VAL) && errno == ERANGE)
 			return CNF_WRONGRANGE;
 		c->too_long_threshold = dbl;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__trace_long_ops) ) {
+		if (opt->paramType != numberType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		long int i32 = strtol(opt->paramValue.numberval, NULL, 10);
+		if (i32 == 0 && errno == EINVAL)
+			return CNF_WRONGINT;
+		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
+			return CNF_WRONGRANGE;
+		c->trace_long_ops = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__custom_proc_title) ) {
 		if (opt->paramType != stringType )
@@ -1084,6 +1100,7 @@ typedef enum IteratorState {
 	S_name__primary_port,
 	S_name__secondary_port,
 	S_name__too_long_threshold,
+	S_name__trace_long_ops,
 	S_name__custom_proc_title,
 	S_name__memcached,
 	S_name__memcached_namespace,
@@ -1341,6 +1358,17 @@ again:
 			}
 			sprintf(*v, "%g", c->too_long_threshold);
 			snprintf(buf, PRINTBUFLEN-1, "too_long_threshold");
+			i->state = S_name__trace_long_ops;
+			return buf;
+		case S_name__trace_long_ops:
+			*v = malloc(32);
+			if (*v == NULL) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			sprintf(*v, "%"PRId32, c->trace_long_ops);
+			snprintf(buf, PRINTBUFLEN-1, "trace_long_ops");
 			i->state = S_name__custom_proc_title;
 			return buf;
 		case S_name__custom_proc_title:
@@ -1864,6 +1892,7 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 	dst->primary_port = src->primary_port;
 	dst->secondary_port = src->secondary_port;
 	dst->too_long_threshold = src->too_long_threshold;
+	dst->trace_long_ops = src->trace_long_ops;
 	dst->custom_proc_title = src->custom_proc_title == NULL ? NULL : strdup(src->custom_proc_title);
 	if (src->custom_proc_title != NULL && dst->custom_proc_title == NULL)
 		return CNF_NOMEMORY;
@@ -2121,6 +2150,13 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 	if (!only_check_rdonly) {
 		if (c1->too_long_threshold != c2->too_long_threshold) {
 			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->too_long_threshold");
+
+			return diff;
+		}
+	}
+	if (!only_check_rdonly) {
+		if (c1->trace_long_ops != c2->trace_long_ops) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->trace_long_ops");
 
 			return diff;
 		}

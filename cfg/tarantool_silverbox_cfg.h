@@ -107,6 +107,9 @@ typedef struct tarantool_cfg {
 	/* warn about requests which take longer to process */
 	double	too_long_threshold;
 
+	/* print too long ops */
+	int32_t	trace_long_ops;
+
 	/* custom proc title is appended after normal */
 	char*	custom_proc_title;
 
