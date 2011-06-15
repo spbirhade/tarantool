@@ -771,15 +771,15 @@ box_req_sprint(struct tbuf *buf, u32 op, struct tbuf *req)
 		flags = read_u32(req);
 		cardinality = read_u32(req);
 		if (req->len != valid_tuple(req, cardinality))
+			raise(ERR_CODE_UNKNOWN_ERROR, "buffer too short");
 		tuple_print(buf, cardinality, req->data);
-			abort();
 		break;
 
 	case DELETE:
 		key_len = read_u32(req);
 		key = read_field(req);
 		if (req->len != 0)
-			abort();
+			raise(ERR_CODE_UNKNOWN_ERROR, "buffer too short");
 		tuple_print(buf, key_len, key);
 		break;
 
