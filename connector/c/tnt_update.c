@@ -53,11 +53,8 @@ void
 tnt_update_free(tnt_update_t * update)
 {
 	tnt_update_op_t * op, * next;
-
 	for (op = update->head ; op ; op = next) {
-
 		next = op->next;
-
 		tnt_mem_free(op->data);
 		tnt_mem_free(op);
 	}
@@ -68,7 +65,6 @@ tnt_update_add(tnt_update_t * update,
 	tnt_update_type_t type, int field, char * data, int size)
 {
 	tnt_update_op_t * op = tnt_mem_alloc(sizeof(tnt_update_op_t));
-
 	if (op == NULL)
 		return TNT_EMEMORY;
 
@@ -81,38 +77,30 @@ tnt_update_add(tnt_update_t * update,
 	update->count++;
 
 	switch (type) {
-
-		case TNT_UPDATE_ASSIGN:
-			op->op = TNT_PROTO_UPDATE_ASSIGN;
-			break;
-
-		case TNT_UPDATE_ADD:
-			op->op = TNT_PROTO_UPDATE_ADD;
-			break;
-
-		case TNT_UPDATE_AND:
-			op->op = TNT_PROTO_UPDATE_AND;
-			break;
-
-		case TNT_UPDATE_XOR:
-			op->op = TNT_PROTO_UPDATE_XOR;
-			break;
-			
-		case TNT_UPDATE_OR:
-			op->op = TNT_PROTO_UPDATE_OR;
-			break;
-
-		default:
-			tnt_mem_free(op);
-			return TNT_EFAIL;
+	case TNT_UPDATE_ASSIGN:
+		op->op = TNT_PROTO_UPDATE_ASSIGN;
+		break;
+	case TNT_UPDATE_ADD:
+		op->op = TNT_PROTO_UPDATE_ADD;
+		break;
+	case TNT_UPDATE_AND:
+		op->op = TNT_PROTO_UPDATE_AND;
+		break;
+	case TNT_UPDATE_XOR:
+		op->op = TNT_PROTO_UPDATE_XOR;
+		break;
+	case TNT_UPDATE_OR:
+		op->op = TNT_PROTO_UPDATE_OR;
+		break;
+	default:
+		tnt_mem_free(op);
+		return TNT_EFAIL;
 	}
 
 	op->field = field;
-
 	op->size  = size;
-	op->data  = tnt_mem_alloc(size);
 	op->next  = NULL;
-
+	op->data  = tnt_mem_alloc(size);
 	if (op->data == NULL ) {
 		tnt_mem_free(op);
 		return TNT_EMEMORY;
@@ -128,22 +116,16 @@ tnt_update_add(tnt_update_t * update,
 static tnt_error_t
 tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 {
-	tnt_update_op_t * op;
-	char * p;
-
 	if (update->count == 0)
 		return TNT_ENOOP;
 
 	/* <count><operation>+ */
-
 	*size = 4 + update->size_enc;
 	*data = tnt_mem_alloc(*size);
-
 	if (*data == NULL)
 		return TNT_EMEMORY;
 
-	p = *data;
-
+	char * p = *data;
 	memcpy(p, &update->count, sizeof(unsigned long));
 	p += 4;
 
@@ -155,9 +137,8 @@ tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 		<field>     ::= <int32_varint><data>
 		<data>      ::= <int8>+
 	*/
-
+	tnt_update_op_t * op;
 	for (op = update->head ; op ; op = op->next) {
-
 		memcpy(p, (void*)&op->field, sizeof(unsigned long));
 		p += sizeof(unsigned long);
 
@@ -180,35 +161,28 @@ tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 {
 	char * td;
 	int ts;
-
 	t->error = tnt_tuple_pack(key, &td, &ts);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	char * ud;
 	int us;
-
 	t->error = tnt_update_pack(update, &ud, &us);
-
 	if (t->error != TNT_EOK) {
 		tnt_mem_free(td);
 		return -1;
 	}
 
 	tnt_proto_header_t hdr;
-
 	hdr.type  = TNT_PROTO_TYPE_UPDATE;
 	hdr.len   = sizeof(tnt_proto_update_t) + ts + us;
 	hdr.reqid = reqid;
 
 	tnt_proto_update_t hdr_update;
-
 	hdr_update.ns = ns;
 	hdr_update.flags = flags;
 
 	struct iovec v[4];
-
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
 	v[1].iov_base = &hdr_update;
@@ -219,7 +193,6 @@ tnt_update_tuple(tnt_t * t, int reqid, int ns, int flags,
 	v[3].iov_len  = us;
 
 	t->error = tnt_io_sendv(t, v, 4);
-
 	tnt_mem_free(td);
 	tnt_mem_free(ud);
 	return (t->error == TNT_EOK) ? 0 : -1;
@@ -233,12 +206,10 @@ tnt_update(tnt_t * t, int reqid, int ns, int flags,
 	tnt_tuple_init(&k);
 
 	t->error = tnt_tuple_add(&k, key, key_size);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	int result = tnt_update_tuple(t, reqid, ns, flags, &k, update);
-
 	tnt_tuple_free(&k);
 	return result;
 }

@@ -42,18 +42,14 @@ static char*
 tnt_auth_sasl_proto(tnt_t * t)
 {
 	switch (t->proto) {
-
-		case TNT_PROTO_ADMIN:
-			return "admin";
-
-		case TNT_PROTO_RW:
-			return "rw";
-
-		case TNT_PROTO_RO:
-			return "ro";
-
-		case TNT_PROTO_FEEDER:
-			return "feeder";
+	case TNT_PROTO_ADMIN:
+		return "admin";
+	case TNT_PROTO_RW:
+		return "rw";
+	case TNT_PROTO_RO:
+		return "ro";
+	case TNT_PROTO_FEEDER:
+		return "feeder";
 	}
 
 	return "unknown";
@@ -68,32 +64,25 @@ tnt_auth_sasl_sendfirst(tnt_t * t, Gsasl_session * session)
 
 	do {
 		rc = gsasl_step64(session, buf, &data);
-
 		if (rc != GSASL_NEEDS_MORE && rc != GSASL_OK)
 			break;
 
 		int len = strlen(data);
-
 		if (len || rc == GSASL_NEEDS_MORE) {
 			e = tnt_io_send(t, data, len + 1);
-
 			if (e != TNT_EOK) {
-
 				free(data);
 				return e;
 			}
 		}
 
 		free(data);
-
 		if (rc == GSASL_NEEDS_MORE)
 			if (tnt_io_recv_raw(t, buf, sizeof(buf)) == -1)
 				return TNT_ESYSTEM;
-
 	} while(rc == GSASL_NEEDS_MORE);
 
 	e = TNT_EAUTH;
-
 	if (rc == GSASL_OK)
 		e = TNT_EOK;
 
@@ -121,7 +110,6 @@ tnt_auth_sasl_do(tnt_t * t, Gsasl * ctx, char * mech)
 
 	if (!strcmp(mech, "DIGEST-MD5")) {
 		gsasl_property_set(session, GSASL_SERVICE, "tarantool");
-
 		char host[64];
 		if (gethostname(host, sizeof(host)) == -1) {
 			gsasl_finish(session);
@@ -133,7 +121,6 @@ tnt_auth_sasl_do(tnt_t * t, Gsasl * ctx, char * mech)
 
 negotiate:; /* < making compiler happy */
 	tnt_error_t e = tnt_auth_sasl_sendfirst(t, session);
-
 	gsasl_finish(session);
 	return e;
 }
@@ -154,12 +141,10 @@ tnt_auth_sasl(tnt_t * t)
 		return TNT_EFAIL;
 
 	Gsasl * ctx = NULL;
-
 	if (gsasl_init(&ctx) != GSASL_OK)
 		return TNT_EFAIL;
 
 	tnt_error_t r = tnt_auth_sasl_do(t, ctx, t->auth_mech);
-
 	gsasl_done(ctx);
 	return r;
 }

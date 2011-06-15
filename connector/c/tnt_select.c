@@ -46,27 +46,22 @@ tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 {
 	char * data_enc;
 	int data_enc_size;
-
 	t->error = tnt_tuples_pack(tuples, &data_enc, &data_enc_size);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	tnt_proto_header_t hdr;
-
 	hdr.type  = TNT_PROTO_TYPE_SELECT;
 	hdr.len   = sizeof(tnt_proto_select_t) + data_enc_size;
 	hdr.reqid = reqid;
 
 	tnt_proto_select_t hdr_sel;
-
 	hdr_sel.ns     = ns;
 	hdr_sel.index  = index;
 	hdr_sel.offset = offset;
 	hdr_sel.limit  = limit;
 
 	struct iovec v[3];
-
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
 
@@ -77,7 +72,6 @@ tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 	v[2].iov_len  = data_enc_size;
 
 	t->error = tnt_io_sendv(t, v, 3);
-
 	tnt_mem_free(data_enc);
 	return (t->error == TNT_EOK) ? 0 : -1;
 }

@@ -2,22 +2,16 @@
 #define TNT_MEMCACHE_VAL_H_
 
 typedef struct {
-
 	int flags;
 	unsigned long long cas;
-
 	char * key;
-
 	char * value;
 	int value_size;
-
 } tnt_memcache_val_t;
 
 typedef struct {
-
 	int count;
 	tnt_memcache_val_t * values;
-
 } tnt_memcache_vals_t;
 
 #define TNT_MEMCACHE_VAL_COUNT(VS) ((VS)->count)

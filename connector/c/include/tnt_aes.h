@@ -64,13 +64,10 @@ typedef unsigned int   u32;
 
 /*  The structure for key information */
 typedef struct {
-
 	int	enc_only;                        /* context contains only encrypt schedule */
 	int	Nr;                              /* key-length-dependent number of rounds */
-
 	u32	ek[4 * (TNT_AES_MAXROUNDS + 1)]; /* encrypt key schedule */
 	u32	dk[4 * (TNT_AES_MAXROUNDS + 1)]; /* decrypt key schedule */
-
 } tnt_aes_ctx_t;
 
 int

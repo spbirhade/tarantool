@@ -27,23 +27,19 @@
  */
 
 typedef enum {
-
 	TNT_RECV_SELECT,
 	TNT_RECV_INSERT,
 	TNT_RECV_UPDATE,
 	TNT_RECV_DELETE,
 	TNT_RECV_PING
-
 } tnt_recv_op_t;
 
 typedef struct {
-
 	tnt_recv_op_t op;
 	unsigned long reqid;
 	unsigned long code;
 	unsigned long count;
 	tnt_tuples_t  tuples;
-
 } tnt_recv_t;
 
 #define TNT_RECV_COUNT(R) \

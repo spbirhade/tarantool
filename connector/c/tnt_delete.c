@@ -46,12 +46,10 @@ tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
 	char * td;
 	int ts;
 	t->error = tnt_tuple_pack(key, &td, &ts);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	tnt_proto_header_t hdr;
-
 	hdr.type  = TNT_PROTO_TYPE_DELETE;
 	hdr.len   = sizeof(tnt_proto_delete_t) + ts;
 	hdr.reqid = reqid;
@@ -60,7 +58,6 @@ tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
 	hdr_del.ns = ns;
 
 	struct iovec v[3];
-
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
 	v[1].iov_base = &hdr_del;
@@ -69,7 +66,6 @@ tnt_delete_tuple(tnt_t * t, int reqid, int ns, tnt_tuple_t * key)
 	v[2].iov_len  = ts;
 
 	t->error = tnt_io_sendv(t, v, 3);
-
 	tnt_mem_free(td);
 	return (t->error == TNT_EOK) ? 0 : -1;
 }
@@ -81,12 +77,10 @@ tnt_delete(tnt_t * t, int reqid, int ns, char * key, int key_size)
 	tnt_tuple_init(&k);
 
 	t->error = tnt_tuple_add(&k, key, key_size);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	int result = tnt_delete_tuple(t, reqid, ns, &k);
-
 	tnt_tuple_free(&k);
 	return result;
 }

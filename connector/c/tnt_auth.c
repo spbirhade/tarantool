@@ -24,8 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include "config.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,19 +42,12 @@ tnt_error_t
 tnt_auth(tnt_t * t)
 {
 	switch (t->auth_type) {
-
-		case TNT_AUTH_NONE:
-			return TNT_EOK;
-
-		case TNT_AUTH_CHAP:
-			return tnt_auth_chap(t);
-
-		case TNT_AUTH_SASL:
-#if defined(HAVE_GSASL)
-			return tnt_auth_sasl(t);
-#else
-			return TNT_EFAIL;
-#endif
+	case TNT_AUTH_NONE:
+		return TNT_EOK;
+	case TNT_AUTH_CHAP:
+		return tnt_auth_chap(t);
+	case TNT_AUTH_SASL:
+		return tnt_auth_sasl(t);
 	}
 
 	return TNT_EOK;

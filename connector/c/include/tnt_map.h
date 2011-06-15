@@ -27,48 +27,35 @@
  */
 
 typedef enum {
-
 	TNT_MAP_OFFLINE,
 	TNT_MAP_ONLINE
-
 } tnt_map_status_t;
 
 typedef struct {
-
 	int idx;
 	tnt_map_status_t status;
-	
 	char * host;
 	int port;
 	int points;
 	int mem;
 	int reserved;
-
 	unsigned long long stat_maps;
-
 } tnt_map_server_t;
 
 typedef struct {
-
 	int idx;
 	unsigned int point;
-
 } tnt_map_ptr_t;
 
 typedef struct {
-
 	unsigned long points;
 	int mem;
-
 	tnt_map_ptr_t * map;
-
 	int servers_count;
 	int servers_max;
 	int servers_per;
 	int servers_online;
-
 	tnt_map_server_t * servers;
-
 } tnt_map_t;
 
 int

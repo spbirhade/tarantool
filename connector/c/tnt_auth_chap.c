@@ -57,7 +57,6 @@ tnt_auth_chap(tnt_t * t)
 
 	tnt_error_t r = tnt_io_recv(t,
 		(void*)&hs1, sizeof(tnt_auth_chap_hdr_server1_t));
-
 	if (r != TNT_EOK)
 		return r;
 
@@ -66,23 +65,21 @@ tnt_auth_chap(tnt_t * t)
 
 	/* Stage2. Creating Hash by signing Token. */
 	tnt_auth_chap_hdr_client_t hc;
-
 	memcpy(hc.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE);
 
 	switch (t->proto) {
-
-		case TNT_PROTO_ADMIN:
-			hc.proto = TNT_AUTH_CHAP_PROTO_ADMIN;
-			break;
-		case TNT_PROTO_RW:
-			hc.proto = TNT_AUTH_CHAP_PROTO_RW;
-			break;
-		case TNT_PROTO_RO:
-			hc.proto = TNT_AUTH_CHAP_PROTO_RO;
-			break;
-		case TNT_PROTO_FEEDER:
-			hc.proto = TNT_AUTH_CHAP_PROTO_FEEDER;
-			break;
+	case TNT_PROTO_ADMIN:
+		hc.proto = TNT_AUTH_CHAP_PROTO_ADMIN;
+		break;
+	case TNT_PROTO_RW:
+		hc.proto = TNT_AUTH_CHAP_PROTO_RW;
+		break;
+	case TNT_PROTO_RO:
+		hc.proto = TNT_AUTH_CHAP_PROTO_RO;
+		break;
+	case TNT_PROTO_FEEDER:
+		hc.proto = TNT_AUTH_CHAP_PROTO_FEEDER;
+		break;
 	}
 
 	memset(hc.id, 0, sizeof(hc.id));
@@ -91,7 +88,6 @@ tnt_auth_chap(tnt_t * t)
 	tnt_auth_chap_hash(t, &hs1, &hc);
 
 	r = tnt_io_send(t, (void*)&hc, sizeof(tnt_auth_chap_hdr_client_t));
-
 	if (r != TNT_EOK)
 		return r;
 
@@ -99,7 +95,6 @@ tnt_auth_chap(tnt_t * t)
 	tnt_auth_chap_hdr_server2_t hs2;
 
 	r = tnt_io_recv(t, (void*)&hs2, sizeof(tnt_auth_chap_hdr_server2_t));
-
 	if (r != TNT_EOK)
 		return r;
 

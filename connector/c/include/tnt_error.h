@@ -27,29 +27,22 @@
  */
 
 typedef enum {
-
 	TNT_EOK,
 	TNT_EFAIL,
 	TNT_EMEMORY,
 	TNT_ESYSTEM,
-
 	TNT_EBADVAL,
 	TNT_EBIG,
 	TNT_ESIZE,
-
 	TNT_ERESOLVE,
 	TNT_ETMOUT,
 	TNT_EPROTO,
 	TNT_EAUTH,
-
 	TNT_ENOOP,
 	TNT_ENOTU,
-
 	TNT_EERROR,
 	TNT_EAGAIN,
-
 	TNT_LAST
-
 } tnt_error_t;
 
 #endif

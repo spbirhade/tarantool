@@ -29,24 +29,19 @@
 #define TNT_TMOUT_DEFAULT (16)
 
 typedef enum {
-
 	TNT_AUTH_NONE,
 	TNT_AUTH_CHAP,
 	TNT_AUTH_SASL
-
 } tnt_auth_t;
 
 typedef enum {
-
 	TNT_PROTO_ADMIN,
 	TNT_PROTO_RW,
 	TNT_PROTO_RO,
 	TNT_PROTO_FEEDER
-
 } tnt_proto_t;
 
 typedef struct {
-
 	int             connected;
 	int             fd;
 
@@ -74,7 +69,6 @@ typedef struct {
 
 	tnt_error_t     error;
 	int             error_errno;
-
 } tnt_t;
 
 tnt_t*

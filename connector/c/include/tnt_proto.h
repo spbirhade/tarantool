@@ -35,11 +35,9 @@
 #define TNT_PROTO_TYPE_PING   (65280)
 
 typedef struct {
-
 	unsigned long type;
 	unsigned long len;
 	unsigned long reqid;
-
 } tnt_proto_header_t;
 
 #define TNT_PROTO_IS_OK(V)    (((V) & 0x00) == 0x0)
@@ -103,17 +101,13 @@ typedef struct {
 #define TNT_PROTO_ERR_CODE_NO_SUCH_NAMESPACE    (0x00003902)
 
 typedef struct {
-
 	tnt_proto_header_t hdr;
 	unsigned long code;
-
 } tnt_proto_header_resp_t;
 
 typedef struct {
-
 	unsigned long card;
 	unsigned char field[];
-
 } tnt_proto_tuple_t;
 
 #define TNT_PROTO_FLAG_RETURN    (0x01)
@@ -123,11 +117,9 @@ typedef struct {
 #define TNT_PROTO_FLAG_NOT_STORE (0x10)
 
 typedef struct {
-
 	unsigned long ns;
 	unsigned long flags;
 	/* tuple data */
-
 } tnt_proto_insert_t;
 
 #define TNT_PROTO_UPDATE_ASSIGN (0)
@@ -137,39 +129,30 @@ typedef struct {
 #define TNT_PROTO_UPDATE_OR     (4)
 
 typedef struct {
-
 	unsigned long ns;
 	unsigned long flags;
-
 	/* tuple data */
 	/* count */
 	/* operation */
-
 } tnt_proto_update_t;
 
 typedef struct {
-
 	unsigned long field;
 	unsigned char op;
 	/* op_arg */
-
 } tnt_proto_update_op_t;
 
 typedef struct {
-
 	unsigned long ns;
 	/* tuple data */
-
 } tnt_proto_delete_t;
 
 typedef struct {
-
 	unsigned long ns;
 	unsigned long index;
 	unsigned long offset;
 	unsigned long limit;
 	/* tuple data */
-
 } tnt_proto_select_t;
 
 #endif

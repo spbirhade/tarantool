@@ -50,11 +50,9 @@ void
 tnt_memcache_val_free(tnt_memcache_vals_t * values)
 {
 	int i;
-
 	for (i = 0 ; i < values->count ; i++) {
 		if (values->values[i].key)
 			tnt_mem_free(values->values[i].key);
-
 		if (values->values[i].value)
 			tnt_mem_free(values->values[i].value);
 	}
@@ -67,12 +65,10 @@ int
 tnt_memcache_val_alloc(tnt_memcache_vals_t * values, int count)
 {
 	values->values = tnt_mem_alloc(sizeof(tnt_memcache_val_t) * count);
-
 	if (values->values == NULL)
 		return -1;
 	
 	memset(values->values, 0, sizeof(tnt_memcache_val_t) * count);
-
 	values->count = count;
 	return 0;
 }

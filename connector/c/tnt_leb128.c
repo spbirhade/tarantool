@@ -38,18 +38,14 @@ tnt_leb128_read(char * buf, int size, unsigned long * value)
 
 	if (size < 1)
 		return -1;
-
 	if (!(buf[0] & 0x80)) {
-
 		*value = buf[0] & 0x7f;
 		return 1;
 	}
 
 	if (size < 2)
 		return -1;
-
 	if (!(buf[1] & 0x80)) {
-
 		*value = (buf[0] & 0x7f) << 7 |
 		         (buf[1] & 0x7f);
 		return 2;
@@ -57,9 +53,7 @@ tnt_leb128_read(char * buf, int size, unsigned long * value)
 
 	if (size < 3)
 		return -1;
-
 	if (!(buf[2] & 0x80)) {
-
 		*value = (buf[0] & 0x7f) << 14 |
 				 (buf[1] & 0x7f) << 7  |
 				 (buf[2] & 0x7f);
@@ -68,9 +62,7 @@ tnt_leb128_read(char * buf, int size, unsigned long * value)
 
 	if (size < 4)
 		return -1;
-
 	if (!(buf[3] & 0x80)) {
-
 		*value = (buf[0] & 0x7f) << 21 |
 				 (buf[1] & 0x7f) << 14 |
 				 (buf[2] & 0x7f) << 7  |
@@ -80,9 +72,7 @@ tnt_leb128_read(char * buf, int size, unsigned long * value)
 
 	if (size < 5)
 		return -1;
-
 	if (!(buf[4] & 0x80)) {
-
 		*value = (buf[0] & 0x7f) << 28 |
 		         (buf[1] & 0x7f) << 21 |
 				 (buf[2] & 0x7f) << 14 |
@@ -116,15 +106,11 @@ tnt_leb128_size(unsigned long value)
 {
 	if (value < (1 << 7))
 		return 1;
-
 	if (value < (1 << 14))
 		return 2;
-
 	if (value < (1 << 21))
 		return 3;
-
 	if (value < (1 << 28))
 		return 4;
-
 	return 5;
 }

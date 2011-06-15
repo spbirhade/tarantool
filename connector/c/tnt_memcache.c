@@ -58,10 +58,8 @@ tnt_memcache_storage(tnt_t * t, char * cmd,
 
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
-
 	v[1].iov_base = data;
 	v[1].iov_len  = size;
-
 	v[2].iov_base = "\r\n";
 	v[2].iov_len  = 2;
 
@@ -145,10 +143,8 @@ tnt_memcache_cas(tnt_t * t, int flags, int expire,
 static int
 tnt_memcache_get_tx(tnt_t * t, bool cas, int count, char ** keys)
 {
-	struct iovec * v;
 	int vc = 1 + (2 * count);
-	v = tnt_mem_alloc(sizeof(struct iovec) * vc);
-
+	struct iovec * v = tnt_mem_alloc(sizeof(struct iovec) * vc);
 	if (v == NULL) {
 		t->error = TNT_EMEMORY;
 		return -1;
@@ -164,10 +160,8 @@ tnt_memcache_get_tx(tnt_t * t, bool cas, int count, char ** keys)
 
 	int i, pos = 1;
 	for (i = 0 ; i < count ; i++, pos += 2) {
-
 		v[pos].iov_base = keys[i];
 		v[pos].iov_len = strlen(keys[i]);
-
 		if (i + 1 == count) {
 			v[pos + 1].iov_base = "\r\n";
 			v[pos + 1].iov_len = 2;
@@ -179,7 +173,6 @@ tnt_memcache_get_tx(tnt_t * t, bool cas, int count, char ** keys)
 
 	int r = tnt_io_send_rawv(t, v, vc);
 	tnt_mem_free(v);
-
 	if (r < 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
@@ -201,12 +194,9 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 	 * ...
 	 * END\r\n
 	*/
-
 	int i;
 	tnt_memcache_val_t * value = TNT_MEMCACHE_VAL_GET(values, 0);
-
 	for (i = 0 ; i < count ; i++, value++) {
-
 		t->error = tnt_io_recv_expect(t, "VALUE ");
 		if (t->error != TNT_EOK)
 			goto error;
@@ -214,9 +204,7 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 		/* key */
 		int key_len = 0;
 		char key[128], ch[1];
-
 		for (;; key_len++) {
-
 			if (key_len > (int)sizeof(key)) {
 				t->error = TNT_EBIG;
 				goto error;
@@ -243,17 +231,13 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 		/* flags */
 		value->flags = 0;
 		while (1) {
-
 			t->error = tnt_io_recv_char(t, ch);
 			if (!isdigit(ch[0])) {
-
 				if (ch[0] == ' ')
 					break;
-
 				t->error = TNT_EPROTO;
 				goto error;
 			}
-
 			value->flags *= 10;
 			value->flags += ch[0] - 48;
 		}
@@ -261,7 +245,6 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 		/* bytes */
 		value->value_size = 0;
 		while (1) {
-
 			t->error = tnt_io_recv_char(t, ch);
 			if (t->error != TNT_EOK)
 				goto error;
@@ -283,11 +266,9 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 cas:
 		value->cas = 0;
 		while (1) {
-
 			t->error = tnt_io_recv_char(t, ch);
 			if (t->error != TNT_EOK)
 				goto error;
-
 			if (!isdigit(ch[0])) {
 				if (ch[0] == '\r')
 					goto lf;
@@ -337,22 +318,21 @@ error:
 }
 
 int
-tnt_memcache_get(tnt_t * t, int cas,
+tnt_memcache_get(tnt_t * t, bool cas,
 	int count, char ** keys, tnt_memcache_vals_t * values)
 {
 	if (tnt_memcache_get_tx(t, cas, count, keys) == -1)
 		return -1;
-
 	return tnt_memcache_get_rx(t, cas, count, values);
 }
 
 int
 tnt_memcache_delete(tnt_t * t, char * key, int time)
 {
-	struct iovec v[1];
 	char buf[256];
 	int len = snprintf(buf, sizeof(buf), "delete %s %d\r\n", key, time);
 
+	struct iovec v[1];
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 
@@ -372,7 +352,6 @@ tnt_memcache_delete(tnt_t * t, char * key, int time)
 		return 0;
 
 	/* NOT_FOUND or ERRORs */
-
 	t->error = TNT_EFAIL;
 	return -1;
 }
@@ -381,10 +360,10 @@ static int
 tnt_memcache_unary(tnt_t * t, char * cmd,
 	char * key, unsigned long long val, unsigned long long * valo)
 {
-	struct iovec v[1];
 	char buf[256];
 	int len = snprintf(buf, sizeof(buf), "%s %s %llu\r\n", cmd, key, val);
 
+	struct iovec v[1];
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 
@@ -395,22 +374,18 @@ tnt_memcache_unary(tnt_t * t, char * cmd,
 	}
 
 	char ch[1];
-
 	t->error = tnt_io_recv_char(t, ch);
 	if (t->error != TNT_EOK)
 		return -1;
 
 	if (!isdigit(ch[0])) {
-
 		/* NOT_FOUND or ERRORs */
-
 		t->error = TNT_EFAIL;
 		return -1;
 	} 
 
 	*valo = ch[0] - 48;
 	while (1) {
-
 		t->error = tnt_io_recv_char(t, ch);
 		if (t->error != TNT_EOK)
 			return -1;
@@ -458,11 +433,10 @@ tnt_memcache_dec(tnt_t * t, char * key,
 int
 tnt_memcache_flush_all(tnt_t * t, int time)
 {
-	struct iovec v[1];
 	char buf[256];
-
 	int len = snprintf(buf, sizeof(buf), "flush_all %d\r\n", time);
 
+	struct iovec v[1];
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 

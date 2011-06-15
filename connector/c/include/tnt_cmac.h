@@ -48,12 +48,10 @@
 #define TNT_AES_CMAC_DIGEST_LENGTH (16)
 
 typedef struct {
-
 	tnt_aes_ctx_t aes;
 	u_int8_t      X[16];
 	u_int8_t	  M_last[16];
 	u_int		  M_n;
-
 } tnt_aes_cmac_ctx;
 
 void

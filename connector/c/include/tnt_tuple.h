@@ -27,26 +27,18 @@
  */
 
 typedef struct _tnt_tuple_field_t {
-
 	char * data;
-
 	unsigned long size;
 	unsigned long size_leb;
-
 	struct _tnt_tuple_field_t * next;
-
 } tnt_tuple_field_t;
 
 typedef struct _tnt_tuple_t {
-
 	unsigned long count;
 	unsigned long size_enc;
-
 	tnt_tuple_field_t * head;
 	tnt_tuple_field_t * tail;
-
 	struct _tnt_tuple_t * next;
-
 } tnt_tuple_t;
 
 #define TNT_TUPLE_FOREACH(TS, TI) \
@@ -55,12 +47,9 @@ typedef struct _tnt_tuple_t {
 	      (TI) = (TI)->next )
 
 typedef struct {
-
 	int count;
-
 	tnt_tuple_t * head;
 	tnt_tuple_t * tail;
-
 } tnt_tuples_t;
 
 #define TNT_TUPLES_FOREACH(TS, TI) \

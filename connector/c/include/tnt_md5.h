@@ -50,11 +50,9 @@
 #define TNT_MD5_DIGEST_LENGTH (16)
 
 typedef struct {
-
-  uint32_t state[4];
-  uint32_t count[2];
-  unsigned char buffer[64];
-
+	uint32_t state[4];
+	uint32_t count[2];
+	unsigned char buffer[64];
 } tnt_md5_t;
 
 void

@@ -50,13 +50,11 @@ tnt_io_send_rawv(tnt_t * t, void * iovec, int count);
 int
 tnt_io_recv_raw(tnt_t * t, char * buf, int size);
 
-
 tnt_error_t
 tnt_io_send(tnt_t * t, char * buf, int size);
 
 tnt_error_t
 tnt_io_sendv(tnt_t * t, void * iovec, int count);
-
 
 tnt_error_t
 tnt_io_recv(tnt_t * t, char * buf, int size);

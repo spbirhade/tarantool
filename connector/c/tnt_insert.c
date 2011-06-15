@@ -44,36 +44,28 @@ tnt_insert(tnt_t * t, int reqid, int ns, int flags, tnt_tuple_t * data)
 {
 	char * data_enc;
 	int data_enc_size;
-
 	t->error = tnt_tuple_pack(data, &data_enc, &data_enc_size);
-
 	if (t->error != TNT_EOK)
 		return -1;
 
 	tnt_proto_header_t hdr;
-
 	hdr.type  = TNT_PROTO_TYPE_INSERT;
 	hdr.len   = sizeof(tnt_proto_insert_t) + data_enc_size;
 	hdr.reqid = reqid;
 
 	tnt_proto_insert_t hdr_insert;
-
 	hdr_insert.ns = ns;
 	hdr_insert.flags = flags;
 
 	struct iovec v[3];
-
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
-
 	v[1].iov_base = &hdr_insert;
 	v[1].iov_len  = sizeof(tnt_proto_insert_t);
-
 	v[2].iov_base = data_enc;
 	v[2].iov_len  = data_enc_size;
 
 	t->error = tnt_io_sendv(t, v, 3);
-
 	tnt_mem_free(data_enc);
 	return (t->error == TNT_EOK) ? 0 : -1;
 }

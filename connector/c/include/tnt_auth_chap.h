@@ -34,21 +34,17 @@
 #define TNT_AUTH_CHAP_HASH_SIZE   (16)
 
 typedef struct {
-
 	unsigned char magic[TNT_AUTH_CHAP_MAGIC_SIZE];
 	unsigned char version;
 	unsigned char token[TNT_AUTH_CHAP_TOKEN_SIZE];
-
 } tnt_auth_chap_hdr_server1_t;
 
 #define TNT_AUTH_CHAP_RESP_FAIL   (0)
 #define TNT_AUTH_CHAP_RESP_OK     (1)
 
 typedef struct {
-
 	unsigned char magic[TNT_AUTH_CHAP_MAGIC_SIZE];
 	unsigned char resp;
-
 } tnt_auth_chap_hdr_server2_t;
 
 #define TNT_AUTH_CHAP_PROTO_ADMIN  (0)
@@ -57,12 +53,10 @@ typedef struct {
 #define TNT_AUTH_CHAP_PROTO_FEEDER (3)
 
 typedef struct tnt_auth_chap_hdr_client_t {
-
 	unsigned char magic[TNT_AUTH_CHAP_MAGIC_SIZE];
 	unsigned char id[TNT_AUTH_CHAP_ID_SIZE];
 	unsigned char hash[TNT_AUTH_CHAP_HASH_SIZE];
 	unsigned char proto;
-
 } tnt_auth_chap_hdr_client_t;
 
 tnt_error_t
