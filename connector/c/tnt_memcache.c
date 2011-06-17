@@ -318,7 +318,7 @@ error:
 }
 
 int
-tnt_memcache_get(tnt_t * t, bool cas,
+tnt_memcache_get(tnt_t * t, int cas,
 	int count, char ** keys, tnt_memcache_vals_t * values)
 {
 	if (tnt_memcache_get_tx(t, cas, count, keys) == -1)

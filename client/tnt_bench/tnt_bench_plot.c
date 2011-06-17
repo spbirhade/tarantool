@@ -81,11 +81,11 @@ tnt_bench_plot_cfg(tnt_bench_t * bench, tnt_bench_test_t * test)
 		bench->opt->plot_dir, test->func->name);
 
 	char * head =
-		"set terminal png nocrop enhanced size 800,600 font Verdana 8\n"
+		"set terminal png nocrop enhanced size 800,600 fon Tahoma 8\n"
 		"set output '%s'\n"
 		"set ytics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0\n"
 		"set xtics (%s)\n"
-		"set title \"Tarantool '%s' benchmark\"\n"
+		"set title \"Tarantool '%s' benchmark (count: %d, reps: %d)\"\n"
 		"set xlabel \"Buffers\"\n"
 		"set ylabel \"Requests\"\n";
 
@@ -99,7 +99,8 @@ tnt_bench_plot_cfg(tnt_bench_t * bench, tnt_bench_test_t * test)
 
 	fprintf(f, head, file,
 		tnt_bench_test_buf_list(test),
-		test->func->name);
+		test->func->name,
+		bench->opt->count, bench->opt->reps);
 
 	char * head_xrange =
 		"set xrange [%d : %d] noreverse nowriteback\n\n";

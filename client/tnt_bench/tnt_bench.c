@@ -142,13 +142,8 @@ tnt_bench_run(tnt_bench_t * bench)
 				printf("unknown test: \"%s\", try --test-list\n", name);
 				return;
 			}
-			tnt_bench_test_t * t =
-				tnt_bench_test_add(&bench->tests, func);
-			if (!strcmp(name, "select") || 
-			    !strcmp(name, "ping") )
-				tnt_bench_test_buf_add(t, 0);
+			tnt_bench_test_add(&bench->tests, func);
 		}
-
 		TNT_BENCH_LIST_FOREACH(&bench->opt->bufs, iter) {
 			char * buf = TNT_BENCH_LIST_VALUE(iter, char*);
 			tnt_bench_list_node_t * i;
@@ -180,6 +175,7 @@ tnt_bench_run(tnt_bench_t * bench)
 			printf("\033[22;33m%s\033[0m\n", t->func->name);
 		else
 			printf("%s\n", t->func->name);
+		fflush(stdout);
 
 		tnt_bench_list_node_t * j;
 		TNT_BENCH_LIST_FOREACH(&t->list, j) {
@@ -189,6 +185,7 @@ tnt_bench_run(tnt_bench_t * bench)
 			printf("  >>> [%d] ", b->buf);
 			memset(stats, 0, sizeof(tnt_bench_stat_t) *
 				bench->opt->reps);
+			fflush(stdout);
 
 			int r;
 			for (r = 0 ; r < bench->opt->reps ; r++) {

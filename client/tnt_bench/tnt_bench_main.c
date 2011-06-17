@@ -81,6 +81,9 @@ tnt_bench_usage(tnt_bench_opt_t * opts, char * name)
 	printf("  # for 10000 counts * 10 repeats\n");
 	printf("  tnt_bench --test insert --test select -B 48 -B 96 -B 102 -C 10000 -R 10\n\n");
 
+	printf("  # benchmark async and sync insert tests\n");
+	printf("  tnt_bench -T insert -T sync-insert -B 32 -B 64 -B 128 -C 100000 -P\n\n");
+
 	printf("  # benchmark memcache protocol for 32, 64, 128 bytes payload\n");
 	printf("  # with plot generation\n");
 	printf("  tnt_bench -t none -p 33013 -T memcache-set -B 32 -B 64 -B 128 -C 10000 -R 5 -P\n");

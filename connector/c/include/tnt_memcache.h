@@ -26,7 +26,7 @@ tnt_memcache_cas(tnt_t * t, int flags, int expire,
 	unsigned long long cas, char * key, char * data, int size);
 
 int
-tnt_memcache_get(tnt_t * t, bool cas,
+tnt_memcache_get(tnt_t * t, int cas,
 	int count, char ** keys, tnt_memcache_vals_t * values);
 
 int
