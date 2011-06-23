@@ -168,6 +168,7 @@ static const double __ac_HASH_UPPER = 0.77;
         } \
         static inline void kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets) \
         { \
+		ev_tstamp start = (ev_now_update(), ev_now());	\
                 uint32_t *new_flags = 0; \
                 khint_t j = 1; \
                 { \
@@ -226,6 +227,7 @@ static const double __ac_HASH_UPPER = 0.77;
                         h->upper_bound = (khint_t)(h->n_buckets * __ac_HASH_UPPER + 0.5); \
                         ++h->resize_cnt; \
                 } \
+		say_crit("RESIZE of %i took %.3f sec",h->size, (ev_now_update(), ev_now()) - start); \
         } \
         static inline void kh_clear_##name(kh_##name##_t *h) \
         { \
