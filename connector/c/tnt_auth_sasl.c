@@ -51,7 +51,6 @@ tnt_auth_sasl_proto(tnt_t * t)
 	case TNT_PROTO_FEEDER:
 		return "feeder";
 	}
-
 	return "unknown";
 }
 
@@ -61,12 +60,10 @@ tnt_auth_sasl_sendfirst(tnt_t * t, Gsasl_session * session)
 	int rc = 0;
 	char buf[8096], * data = NULL;
 	tnt_error_t e;
-
 	do {
 		rc = gsasl_step64(session, buf, &data);
 		if (rc != GSASL_NEEDS_MORE && rc != GSASL_OK)
 			break;
-
 		int len = strlen(data);
 		if (len || rc == GSASL_NEEDS_MORE) {
 			e = tnt_io_send(t, data, len + 1);
@@ -75,17 +72,15 @@ tnt_auth_sasl_sendfirst(tnt_t * t, Gsasl_session * session)
 				return e;
 			}
 		}
-
 		free(data);
 		if (rc == GSASL_NEEDS_MORE)
-			if (tnt_io_recv_raw(t, buf, sizeof(buf)) == -1)
+			if (tnt_io_recv_raw(t, buf, sizeof(buf)) <= 0)
 				return TNT_ESYSTEM;
 	} while(rc == GSASL_NEEDS_MORE);
 
 	e = TNT_EAUTH;
 	if (rc == GSASL_OK)
 		e = TNT_EOK;
-
 	return e;
 }
 
@@ -136,7 +131,6 @@ tnt_auth_sasl(tnt_t * t)
 	for (i = 0 ; sasl_mechs[i] ; i++)
 		if (!strcmp(sasl_mechs[i], t->auth_mech))
 			break;
-
 	if (sasl_mechs[i] == NULL)
 		return TNT_EFAIL;
 

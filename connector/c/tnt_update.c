@@ -60,56 +60,105 @@ tnt_update_free(tnt_update_t * update)
 	}
 }
 
-tnt_error_t
-tnt_update_add(tnt_update_t * update,
-	tnt_update_type_t type, int field, char * data, int size)
+static tnt_update_op_t*
+tnt_update_alloc(tnt_update_t * update, int type, int field)
 {
 	tnt_update_op_t * op = tnt_mem_alloc(sizeof(tnt_update_op_t));
 	if (op == NULL)
-		return TNT_EMEMORY;
-
+		return NULL;
 	if (update->head == NULL)
 		update->head = op;
 	else
 		update->tail->next = op;
-
 	update->tail = op;
 	update->count++;
+	op->op = type;
+	op->field = field;
+	op->size = 0;
+	op->size_leb = 0;
+	op->next = NULL;
+	op->data = NULL;
+	return op;
+}
 
+tnt_error_t
+tnt_update_add(tnt_update_t * update,
+	tnt_update_type_t type, int field, char * data, int size)
+{
+	int tp;
+	tnt_update_op_t * op;
 	switch (type) {
 	case TNT_UPDATE_ASSIGN:
-		op->op = TNT_PROTO_UPDATE_ASSIGN;
+		tp = TNT_PROTO_UPDATE_ASSIGN;
 		break;
 	case TNT_UPDATE_ADD:
-		op->op = TNT_PROTO_UPDATE_ADD;
+		tp = TNT_PROTO_UPDATE_ADD;
 		break;
 	case TNT_UPDATE_AND:
-		op->op = TNT_PROTO_UPDATE_AND;
+		tp = TNT_PROTO_UPDATE_AND;
 		break;
 	case TNT_UPDATE_XOR:
-		op->op = TNT_PROTO_UPDATE_XOR;
+		tp = TNT_PROTO_UPDATE_XOR;
 		break;
 	case TNT_UPDATE_OR:
-		op->op = TNT_PROTO_UPDATE_OR;
+		tp = TNT_PROTO_UPDATE_OR;
+		break;
+	case TNT_UPDATE_SPLICE:
+		tp = TNT_PROTO_UPDATE_SPLICE;
 		break;
 	default:
-		tnt_mem_free(op);
 		return TNT_EFAIL;
 	}
 
-	op->field = field;
-	op->size  = size;
-	op->next  = NULL;
-	op->data  = tnt_mem_alloc(size);
+	op = tnt_update_alloc(update, tp, field);
+	if (op == NULL)
+		return TNT_EMEMORY;
+
+	if (size > 0) {
+		op->data = tnt_mem_alloc(size);
+		if (op->data == NULL ) {
+			tnt_mem_free(op);
+			return TNT_EMEMORY;
+		}
+		memcpy(op->data, data, op->size);
+	}
+
+	op->size_leb = tnt_leb128_size(size);
+	op->size = size;
+
+	update->size_enc += 4 + 1 + op->size_leb + op->size;
+	return TNT_EOK;
+}
+
+tnt_error_t
+tnt_update_add_splice(tnt_update_t * update,
+	int field, int offset, int length, char * list, int list_size)
+{
+	tnt_update_op_t * op;
+	op = tnt_update_alloc(update, TNT_PROTO_UPDATE_SPLICE, field);
+	if (op == NULL)
+		return TNT_EMEMORY;
+
+	char data[32];
+	int data_len = tnt_leb128_size(offset);
+	tnt_leb128_write(data, offset);
+	data_len += tnt_leb128_size(length);
+	tnt_leb128_write(data + data_len, length);
+	data_len += tnt_leb128_size(list_size);
+	tnt_leb128_write(data + data_len, list_size);
+
+	op->size = data_len + list_size;
+	op->size_leb = tnt_leb128_size(op->size);
+
+	op->data = tnt_mem_alloc(op->size);
 	if (op->data == NULL ) {
 		tnt_mem_free(op);
 		return TNT_EMEMORY;
 	}
+	memcpy(op->data, data, data_len);
+	memcpy(op->data, list, list_size);
 
-	op->size_leb = tnt_leb128_size(size);
 	update->size_enc += 4 + 1 + op->size_leb + op->size;
-
-	memcpy(op->data, data, op->size);
 	return TNT_EOK;
 }
 
@@ -141,13 +190,10 @@ tnt_update_pack(tnt_update_t * update, char ** data, int * size)
 	for (op = update->head ; op ; op = op->next) {
 		memcpy(p, (void*)&op->field, sizeof(unsigned long));
 		p += sizeof(unsigned long);
-
 		memcpy(p, (void*)&op->op, sizeof(unsigned char));
 		p += sizeof(unsigned char);
-
 		tnt_leb128_write(p, op->size);
 		p += op->size_leb;
-
 		memcpy(p, op->data, op->size); 
 		p += op->size;
 	}

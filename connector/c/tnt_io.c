@@ -72,7 +72,6 @@ void
 tnt_io_free(tnt_t * t)
 {
 	tnt_io_close(t);
-
 	if (t->rbuf)
 		tnt_mem_free(t->rbuf);
 	if (t->sbuf)
@@ -86,14 +85,12 @@ tnt_io_resolve(struct sockaddr_in * addr,
 	memset(addr, 0, sizeof(struct sockaddr_in));
 	addr->sin_family = AF_INET;
 	addr->sin_port = htons(port);
-
 	struct hostent * host = gethostbyname(hostname);
 	if (host)
 		memcpy(&addr->sin_addr,
 			(void*)(host->h_addr), host->h_length);
 	else
 		return TNT_ERESOLVE;
-
 	return TNT_EOK;
 }
 
@@ -105,17 +102,14 @@ tnt_io_nonblock(tnt_t * t, int set)
 		t->error_errno = errno;
 		return TNT_ESYSTEM;
 	}
-
 	if (set)
 		flags |= O_NONBLOCK;
 	else
 		flags &= ~O_NONBLOCK;
-
 	if (fcntl(t->fd, F_SETFL, flags) == -1) {
 		t->error_errno = errno;
 		return TNT_ESYSTEM;
 	}
-
 	return TNT_EOK;
 }
 
@@ -139,9 +133,8 @@ tnt_io_connect_do(tnt_t * t, char * host, int port)
 			FD_SET(t->fd, &fds);
 
 			struct timeval tmout;
-			tmout.tv_sec  = t->opt_tmout;
+			tmout.tv_sec = t->opt_tmout;
 			tmout.tv_usec = 0;
-
 			if (select(t->fd + 1, NULL, &fds, NULL, &tmout) == -1) {
 				t->error_errno = errno;
 				return TNT_ESYSTEM;
@@ -175,7 +168,6 @@ tnt_io_xbufmax(tnt_t * t, int opt, int min)
 	int max = 128 * 1024 * 1024;
 	if (min == 0)
 		min = 16384;
-
 	unsigned int avg = 0;
 	while (min <= max) {
 		avg = ((unsigned int)(min + max)) / 2;
@@ -184,7 +176,6 @@ tnt_io_xbufmax(tnt_t * t, int opt, int min)
 		else
 			max = avg - 1;
 	}
-
 	return TNT_EOK;
 }
 
@@ -251,7 +242,6 @@ tnt_io_close(tnt_t * t)
 		close(t->fd);
 		t->fd = -1;
 	}
-
 	t->connected = 0;
 }
 
@@ -264,7 +254,6 @@ tnt_io_flush(tnt_t * t)
 			return r;
 		t->sbuf_off = 0;
 	}
-
 	return TNT_EOK;
 }
 
@@ -272,7 +261,7 @@ int
 tnt_io_send_raw(tnt_t * t, char * buf, int size)
 {
 	int result = send(t->fd, buf, size, 0);
-	if (result == -1)
+	if (result <= 0)
 		t->error_errno = errno;
 	return result;
 }
@@ -280,20 +269,19 @@ tnt_io_send_raw(tnt_t * t, char * buf, int size)
 int
 tnt_io_send_rawv(tnt_t * t, void * iovec, int count)
 {
-	int len = writev(t->fd, iovec, count);
-	if (len == -1) {
+	int result = writev(t->fd, iovec, count);
+	if (result <= 0) {
 		t->error_errno = errno;
 		return -1;
 	}
-
-	return len;
+	return result;
 }
 
 int
 tnt_io_recv_raw(tnt_t * t, char * buf, int size)
 {
 	int result = recv(t->fd, buf, size, 0);
-	if (result == -1)
+	if (result <= 0)
 		t->error_errno = errno;
 	return result;
 }
@@ -304,24 +292,19 @@ tnt_io_send(tnt_t * t, char * buf, int size)
 	int r, off = 0;
 	do {
 		r = send(t->fd, buf + off, size - off, 0);
-		if (r == -1) {
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-			else {
-				t->error_errno = errno;
-				return TNT_ESYSTEM;
-			}
+		if (r <= 0) {
+			t->error_errno = errno;
+			return TNT_ESYSTEM;
 		}
 		off += r;
 	} while (off != size);
-
 	return TNT_EOK;
 }
 
 static tnt_error_t
 tnt_io_sendv_asis(tnt_t * t, void * iovec, int count)
 {
-	if (writev(t->fd, iovec, count) == -1) {
+	if (writev(t->fd, iovec, count) <= 0) {
 		t->error_errno = errno;
 		return TNT_ESYSTEM;
 	}
@@ -349,7 +332,6 @@ tnt_io_sendv(tnt_t * t, void * iovec, int count)
 	int i, size = 0;
 	for (i = 0 ; i < count ; i++)
 		size += ((struct iovec*)iovec)[i].iov_len;
-
 	if (size > t->sbuf_size)
 		return TNT_EBIG;
 
@@ -372,17 +354,12 @@ tnt_io_recv_asis(tnt_t * t, char * buf, int size, int off)
 {
 	do {
 		int r = recv(t->fd, buf + off, size - off, 0);
-		if (r == -1) {
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-			else {
-				t->error_errno = errno;
-				return TNT_ESYSTEM;
-			}
+		if (r <= 0) {
+			t->error_errno = errno;
+			return TNT_ESYSTEM;
 		}
 		off += r;
 	} while (off != size);
-
 	return TNT_EOK;
 }
 
@@ -392,17 +369,12 @@ tnt_io_recv_fill(tnt_t * t)
 	t->rbuf_off = 0;
 	while (1) {
 		t->rbuf_top = recv(t->fd, t->rbuf, t->rbuf_size, 0);
-		if (t->rbuf_top == -1) {
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-			else {
-				t->error_errno = errno;
-				return TNT_ESYSTEM;
-			}
+		if (t->rbuf_top <= 0) {
+			t->error_errno = errno;
+			return TNT_ESYSTEM;
 		}
 		break;
-	} 
-
+	}
 	return TNT_EOK;
 }
 
@@ -422,7 +394,6 @@ tnt_io_recv(tnt_t * t, char * buf, int size)
 
 		lv = t->rbuf_top - t->rbuf_off;
 		rv = left - lv;
-
 		if (lv) {
 			memcpy(buf + off, t->rbuf + t->rbuf_off, lv);
 			off += lv;
@@ -457,13 +428,10 @@ tnt_io_recv_expect(tnt_t * t, char * sz)
 	int len = strlen(sz);
 	if (len > (int)sizeof(buf))
 		return TNT_EBIG;
-
 	tnt_error_t e = tnt_io_recv(t, buf, len);
 	if (e != TNT_EOK)
 		return e;
-
 	if (!memcmp(buf, sz, len))
 		return TNT_EOK;
-
 	return TNT_EPROTO;
 }

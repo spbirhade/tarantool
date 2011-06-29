@@ -64,13 +64,13 @@ tnt_memcache_storage(tnt_t * t, char * cmd,
 	v[2].iov_len  = 2;
 
 	int r = tnt_io_send_rawv(t, v, 3);
-	if (r < 0) {
+	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
 
 	len = tnt_io_recv_raw(t, buf, sizeof(buf));
-	if (len < 0) {
+	if (len <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
@@ -173,7 +173,7 @@ tnt_memcache_get_tx(tnt_t * t, bool cas, int count, char ** keys)
 
 	int r = tnt_io_send_rawv(t, v, vc);
 	tnt_mem_free(v);
-	if (r < 0) {
+	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
@@ -232,6 +232,8 @@ tnt_memcache_get_rx(tnt_t * t, bool cas, int count, tnt_memcache_vals_t * values
 		value->flags = 0;
 		while (1) {
 			t->error = tnt_io_recv_char(t, ch);
+			if (t->error != TNT_EOK)
+				goto error;
 			if (!isdigit(ch[0])) {
 				if (ch[0] == ' ')
 					break;
@@ -337,13 +339,13 @@ tnt_memcache_delete(tnt_t * t, char * key, int time)
 	v[0].iov_len  = len;
 
 	int r = tnt_io_send_rawv(t, v, 1);
-	if (r < 0) {
+	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
 
 	len = tnt_io_recv_raw(t, buf, sizeof(buf));
-	if (len < 0) {
+	if (len <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
@@ -368,7 +370,7 @@ tnt_memcache_unary(tnt_t * t, char * cmd,
 	v[0].iov_len  = len;
 
 	int r = tnt_io_send_rawv(t, v, 1);
-	if (r < 0) {
+	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
@@ -377,7 +379,6 @@ tnt_memcache_unary(tnt_t * t, char * cmd,
 	t->error = tnt_io_recv_char(t, ch);
 	if (t->error != TNT_EOK)
 		return -1;
-
 	if (!isdigit(ch[0])) {
 		/* NOT_FOUND or ERRORs */
 		t->error = TNT_EFAIL;
@@ -389,26 +390,20 @@ tnt_memcache_unary(tnt_t * t, char * cmd,
 		t->error = tnt_io_recv_char(t, ch);
 		if (t->error != TNT_EOK)
 			return -1;
-
 		if (!isdigit(ch[0])) {
 			if (ch[0] == '\r') {
-
 				t->error = tnt_io_recv_char(t, ch);
 				if (t->error != TNT_EOK)
 					return -1;
-
 				if (ch[0] != '\n') {
 					t->error = TNT_EPROTO;
 					return -1;
 				}
-
 				return 0;
 			} 
-
 			t->error = TNT_EPROTO;
 			return -1;
 		}
-
 		*valo *= 10;
 		*valo += ch[0] - 48;
 	}
@@ -441,17 +436,16 @@ tnt_memcache_flush_all(tnt_t * t, int time)
 	v[0].iov_len  = len;
 
 	int r = tnt_io_send_rawv(t, v, 1);
-	if (r < 0) {
+	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
 
 	len = tnt_io_recv_raw(t, buf, sizeof(buf));
-	if (len < 0) {
+	if (len <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
 	}
-
 	if (!memcmp(buf, "OK\r\n", 4))
 		return 0;
 

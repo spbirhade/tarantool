@@ -42,10 +42,8 @@ tnt_auth_chap_hash(tnt_t * t, tnt_auth_chap_hdr_server1_t * hs1,
 {
 	tnt_aes_cmac_ctx cmac;
 	tnt_aes_cmac_init(&cmac);
-
 	tnt_aes_cmac_setkey(&cmac, t->auth_key);
 	tnt_aes_cmac_update(&cmac, (u_int8_t*)hs1->token, sizeof(hs1->token));
-
 	tnt_aes_cmac_final((u_int8_t*)hc->hash, &cmac);
 }
 
@@ -54,12 +52,10 @@ tnt_auth_chap(tnt_t * t)
 {
 	/* Stage1. Recv server Token. */
 	tnt_auth_chap_hdr_server1_t hs1;
-
 	tnt_error_t r = tnt_io_recv(t,
 		(void*)&hs1, sizeof(tnt_auth_chap_hdr_server1_t));
 	if (r != TNT_EOK)
 		return r;
-
 	if (memcmp(hs1.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE))
 		return TNT_EPROTO;
 
@@ -86,21 +82,17 @@ tnt_auth_chap(tnt_t * t)
 	memcpy(hc.id, t->auth_id, t->auth_id_size);
 
 	tnt_auth_chap_hash(t, &hs1, &hc);
-
 	r = tnt_io_send(t, (void*)&hc, sizeof(tnt_auth_chap_hdr_client_t));
 	if (r != TNT_EOK)
 		return r;
 
 	/* Stage3. Check response. */
 	tnt_auth_chap_hdr_server2_t hs2;
-
 	r = tnt_io_recv(t, (void*)&hs2, sizeof(tnt_auth_chap_hdr_server2_t));
 	if (r != TNT_EOK)
 		return r;
-
 	if (memcmp(hs2.magic, TNT_AUTH_CHAP_MAGIC, TNT_AUTH_CHAP_MAGIC_SIZE))
 		return TNT_EPROTO;
-
 	if (hs2.resp == TNT_AUTH_CHAP_RESP_OK)
 		return TNT_EOK;
 

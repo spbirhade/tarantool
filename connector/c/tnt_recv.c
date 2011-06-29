@@ -94,7 +94,6 @@ int
 tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 {
 	char buffer[sizeof(tnt_proto_header_resp_t) + 4];
-
 	t->error = tnt_io_recv(t, buffer, sizeof(tnt_proto_header_t));
 	if (t->error != TNT_EOK)
 		return -1;
@@ -106,7 +105,6 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	rcv->code  = 0;
 	rcv->count = 0;
 
-	/* ping */
 	switch (hdr->hdr.type) {
 	case TNT_PROTO_TYPE_PING:
 		rcv->op = TNT_RECV_PING;
@@ -134,7 +132,6 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 				sizeof(tnt_proto_header_t));
 		if (t->error != TNT_EOK)
 			return -1;
-
 		rcv->code = hdr->code;
 		if (TNT_PROTO_IS_ERROR(hdr->code)) {
 			t->error = TNT_EERROR;
@@ -146,8 +143,8 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		}
 	}
 
-	/* - - */
-	char * p, * data = NULL;
+	char * p = NULL;
+	char * data = NULL;
 	int size = hdr->hdr.len;
 	if ((rcv->op != TNT_RECV_SELECT) && (hdr->hdr.len == 8)) {
 		/* count only - insert, update, delete */

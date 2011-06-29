@@ -35,6 +35,7 @@
 #include <client/tnt_bench/tnt_bench_list.h>
 #include <client/tnt_bench/tnt_bench_func.h>
 #include <client/tnt_bench/tnt_bench_cb.h>
+#include <client/tnt_bench/tnt_bench_redis.h>
 
 static void
 tnt_bench_cb_error(tnt_t * t, char * name)
@@ -75,6 +76,7 @@ tnt_bench_cb_insert_do(tnt_t * t, char * name,
 		printf("memory allocation of %d bytes failed\n", bsize);
 		return;
 	}
+	memset(buf, 'x', bsize);
 
 	tnt_bench_stat_start(stat, count);
 
@@ -107,6 +109,7 @@ tnt_bench_cb_insert_do_sync(tnt_t * t, char * name,
 		printf("memory allocation of %d bytes failed\n", bsize);
 		return;
 	}
+	memset(buf, 'x', bsize);
 
 	tnt_bench_stat_start(stat, count);
 
@@ -171,6 +174,7 @@ tnt_bench_cb_update_do(tnt_t * t, char * name,
 		printf("memory allocation of %d bytes failed\n", bsize);
 		return;
 	}
+	memset(buf, 'x', bsize);
 
 	tnt_bench_stat_start(stat, count);
 
@@ -202,6 +206,7 @@ tnt_bench_cb_update_do_sync(tnt_t * t, char * name,
 		printf("memory allocation of %d bytes failed\n", bsize);
 		return;
 	}
+	memset(buf, 'x', bsize);
 
 	tnt_bench_stat_start(stat, count);
 
@@ -257,15 +262,14 @@ tnt_bench_cb_update_ret_sync(tnt_t * t,
 }
 
 static void
-tnt_bench_cb_select(tnt_t * t, int bsize __attribute__((unused)),
-	int count, tnt_bench_stat_t * stat)
+tnt_bench_cb_select(tnt_t * t, int bsize, int count, tnt_bench_stat_t * stat)
 {
 	tnt_bench_stat_start(stat, count);
 
 	int i;
 	for (i = 0 ; i < count ; i++) {
 		char key[32];
-		int key_len = snprintf(key, sizeof(key), "key_%d_%d", 0, i);
+		int key_len = snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
 		tnt_tuples_t tuples;
 		tnt_tuples_init(&tuples);
 		tnt_tuple_t * tu = tnt_tuples_add(&tuples);
@@ -281,7 +285,7 @@ tnt_bench_cb_select(tnt_t * t, int bsize __attribute__((unused)),
 }
 
 static void
-tnt_bench_cb_select_sync(tnt_t * t, int bsize __attribute__((unused)),
+tnt_bench_cb_select_sync(tnt_t * t, int bsize,
 	int count, tnt_bench_stat_t * stat)
 {
 	tnt_bench_stat_start(stat, count);
@@ -289,7 +293,7 @@ tnt_bench_cb_select_sync(tnt_t * t, int bsize __attribute__((unused)),
 	int i;
 	for (i = 0 ; i < count ; i++) {
 		char key[32];
-		int key_len = snprintf(key, sizeof(key), "key_%d_%d", 0, i);
+		int key_len = snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
 		tnt_tuples_t tuples;
 		tnt_tuples_init(&tuples);
 		tnt_tuple_t * tu = tnt_tuples_add(&tuples);
@@ -313,8 +317,6 @@ tnt_bench_cb_ping(tnt_t * t, int bsize __attribute__((unused)),
 
 	int i;
 	for (i = 0 ; i < count ; i++) {
-		char key[32];
-		snprintf(key, sizeof(key), "key_%d_%d", 0, i);
 		if (tnt_ping(t, i) == -1)
 			tnt_bench_cb_error(t, "ping");
 	}
@@ -332,8 +334,6 @@ tnt_bench_cb_ping_sync(tnt_t * t, int bsize __attribute__((unused)),
 
 	int i;
 	for (i = 0 ; i < count ; i++) {
-		char key[32];
-		snprintf(key, sizeof(key), "key_%d_%d", 0, i);
 		if (tnt_ping(t, i) == -1)
 			tnt_bench_cb_error(t, "sync-ping");
 		tnt_flush(t);
@@ -370,7 +370,7 @@ tnt_bench_cb_memcache_set(tnt_t * t,
 }
 
 static void
-tnt_bench_cb_memcache_get(tnt_t * t, int bsize __attribute__((unused)),
+tnt_bench_cb_memcache_get(tnt_t * t, int bsize,
 	int count, tnt_bench_stat_t * stat)
 {
 	tnt_bench_stat_start(stat, count);
@@ -389,6 +389,130 @@ tnt_bench_cb_memcache_get(tnt_t * t, int bsize __attribute__((unused)),
 			tnt_bench_cb_error(t, "get");
 
 		tnt_memcache_val_free(&vals);
+	}
+
+	tnt_bench_stat_stop(stat);
+}
+
+static void
+tnt_bench_cb_redis_set_recv(tnt_t * t, int count)
+{
+	int key;
+	for (key = 0 ; key < count ; key++) {
+		if (tnt_bench_redis_set_recv(t) == -1)
+			tnt_bench_cb_error(t, "recv");
+		else {
+			if (tnt_error(t) != TNT_EOK)
+				printf("server respond: %s\n", tnt_perror(t));
+		}
+	}
+}
+
+static void
+tnt_bench_cb_redis_set(tnt_t * t,
+	int bsize, int count, tnt_bench_stat_t * stat)
+{
+	char * buf = malloc(bsize);
+	if (buf == NULL) {
+		printf("memory allocation of %d bytes failed\n", bsize);
+		return;
+	}
+	memset(buf, 'x', bsize);
+
+	tnt_bench_stat_start(stat, count);
+
+	int i;
+	for (i = 0 ; i < count ; i++) {
+		char key[32];
+		snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
+		if (tnt_bench_redis_set(t, key, buf, bsize) == -1)
+			tnt_bench_cb_error(t, "set");
+	}
+
+	tnt_flush(t);
+	tnt_bench_cb_redis_set_recv(t, count);
+	tnt_bench_stat_stop(stat);
+
+	free(buf);
+}
+
+static void
+tnt_bench_cb_redis_set_sync(tnt_t * t,
+	int bsize, int count, tnt_bench_stat_t * stat)
+{
+	char * buf = malloc(bsize);
+	if (buf == NULL) {
+		printf("memory allocation of %d bytes failed\n", bsize);
+		return;
+	}
+	memset(buf, 'x', bsize);
+
+	tnt_bench_stat_start(stat, count);
+
+	int i;
+	for (i = 0 ; i < count ; i++) {
+		char key[32];
+		snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
+		if (tnt_bench_redis_set(t, key, buf, bsize) == -1)
+			tnt_bench_cb_error(t, "set");
+		tnt_flush(t);
+		tnt_bench_cb_redis_set_recv(t, 1);
+	}
+
+	tnt_bench_stat_stop(stat);
+	free(buf);
+}
+
+static void
+tnt_bench_cb_redis_get_recv(tnt_t * t, int count)
+{
+	int key;
+	for (key = 0 ; key < count ; key++) {
+		char * buf;
+		int buf_size;
+		if (tnt_bench_redis_get_recv(t, &buf, &buf_size) == -1)
+			tnt_bench_cb_error(t, "recv");
+		else {
+			if (tnt_error(t) != TNT_EOK)
+				printf("server respond: %s\n", tnt_perror(t));
+		}
+		tnt_mem_free(buf);
+	}
+}
+
+static void
+tnt_bench_cb_redis_get(tnt_t * t,
+	int bsize, int count, tnt_bench_stat_t * stat)
+{
+	tnt_bench_stat_start(stat, count);
+
+	int i;
+	for (i = 0 ; i < count ; i++) {
+		char key[32];
+		snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
+		if (tnt_bench_redis_get(t, key) == -1)
+			tnt_bench_cb_error(t, "get");
+	}
+
+	tnt_flush(t);
+	tnt_bench_cb_redis_get_recv(t, count);
+	tnt_bench_stat_stop(stat);
+}
+
+static void
+tnt_bench_cb_redis_get_sync(tnt_t * t,
+	int bsize, int count, tnt_bench_stat_t * stat)
+{
+	tnt_bench_stat_start(stat, count);
+
+	int i;
+	for (i = 0 ; i < count ; i++) {
+		char key[32];
+		snprintf(key, sizeof(key), "key_%d_%d", bsize, i);
+		if (tnt_bench_redis_get(t, key) == -1)
+			tnt_bench_cb_error(t, "get");
+		tnt_flush(t);
+		tnt_bench_cb_redis_get_recv(t, 1);
 	}
 
 	tnt_bench_stat_stop(stat);
@@ -413,4 +537,10 @@ tnt_bench_cb_init(tnt_bench_funcs_t * funcs)
 
 	tnt_bench_func_add(funcs, "memcache-set", tnt_bench_cb_memcache_set);
 	tnt_bench_func_add(funcs, "memcache-get", tnt_bench_cb_memcache_get);
+
+	tnt_bench_func_add(funcs, "redis-set", tnt_bench_cb_redis_set);
+	tnt_bench_func_add(funcs, "redis-get", tnt_bench_cb_redis_get);
+
+	tnt_bench_func_add(funcs, "sync-redis-set", tnt_bench_cb_redis_set_sync);
+	tnt_bench_func_add(funcs, "sync-redis-get", tnt_bench_cb_redis_get_sync);
 }

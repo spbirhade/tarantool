@@ -43,7 +43,6 @@ tnt_init(tnt_proto_t proto, int rbuf_size, int sbuf_size)
 	tnt_t * t = malloc(sizeof(tnt_t));
 	if (t == NULL)
 		return NULL;
-
 	memset(t, 0, sizeof(tnt_t));
 
 	t->proto = proto;
@@ -59,7 +58,6 @@ tnt_init(tnt_proto_t proto, int rbuf_size, int sbuf_size)
 		free(t);
 		return NULL;
 	}
-
 	return t;
 }
 
@@ -96,7 +94,6 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth, char * mech,
 			t->error = TNT_EBADVAL;
 			return -1;
 		}
-
 		if ((t->auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE) {
 			t->error = TNT_EBADVAL;
 			return -1;
@@ -107,7 +104,6 @@ tnt_set_auth(tnt_t * t, tnt_auth_t auth, char * mech,
 			t->error = TNT_EBADVAL;
 			return -1;
 		}
-
 		t->auth_mech = strdup(mech);
 		break;
 	}
@@ -136,14 +132,12 @@ void
 tnt_free(tnt_t * t)
 {
 	tnt_io_free(t);
-
 	if (t->auth_id)
 		free(t->auth_id);
 	if (t->auth_key)
 		free(t->auth_key);
 	if (t->auth_mech)
 		free(t->auth_mech);
-
 	free(t);
 }
 
@@ -153,7 +147,6 @@ tnt_connect(tnt_t * t, char * hostname, int port)
 	t->error = tnt_io_connect(t, hostname, port);
 	if (t->error != TNT_EOK)
 		return -1;
-
 	if (t->auth_type != TNT_AUTH_NONE) {
 		t->error = tnt_auth(t);
 		if (t->error != TNT_EOK) {
@@ -161,7 +154,6 @@ tnt_connect(tnt_t * t, char * hostname, int port)
 			return -1;
 		}
 	}
-
 	t->connected = 1;
 	return 0;
 }
@@ -214,7 +206,7 @@ tnt_error_desc_t tnt_error_list[] =
 	{ TNT_EAUTH,    "authorization failed"     },
 	{ TNT_ENOOP,    "no update ops specified"  },
 	{ TNT_ENOTU,    "no tuples specified"      },
-	{ TNT_EERROR,   "error"                    },
+	{ TNT_EERROR,   "server error"             },
 	{ TNT_EAGAIN,   "resend needed"            },
 	{ TNT_LAST,      NULL                      }
 };
@@ -222,7 +214,12 @@ tnt_error_desc_t tnt_error_list[] =
 char*
 tnt_perror(tnt_t * t)
 {
-	if ((int)t->error > TNT_LAST)
-		return NULL;
+	if (t->error == TNT_ESYSTEM) {
+		static char msg[256];
+		snprintf(msg, sizeof(msg), "%s: %s",
+			tnt_error_list[TNT_ESYSTEM].desc,
+				strerror(t->error_errno));
+		return msg;
+	}
 	return tnt_error_list[(int)t->error].desc;
 }

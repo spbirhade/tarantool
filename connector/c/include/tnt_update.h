@@ -32,7 +32,8 @@ typedef	enum {
 	TNT_UPDATE_ADD,
 	TNT_UPDATE_AND,
 	TNT_UPDATE_XOR,
-	TNT_UPDATE_OR
+	TNT_UPDATE_OR,
+	TNT_UPDATE_SPLICE
 } tnt_update_type_t;
 
 typedef struct _tnt_update_op_t {
@@ -60,6 +61,10 @@ tnt_update_free(tnt_update_t * update);
 tnt_error_t
 tnt_update_add(tnt_update_t * update,
 	tnt_update_type_t type, int field, char * data, int size);
+
+tnt_error_t
+tnt_update_add_splice(tnt_update_t * update,
+	int field, int offset, int length, char * list, int list_size);
 
 int
 tnt_update(tnt_t * t, int reqid, int ns, int flags,

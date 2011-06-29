@@ -49,6 +49,5 @@ tnt_auth(tnt_t * t)
 	case TNT_AUTH_SASL:
 		return tnt_auth_sasl(t);
 	}
-
 	return TNT_EOK;
 }

@@ -127,6 +127,7 @@ typedef struct {
 #define TNT_PROTO_UPDATE_AND    (2)
 #define TNT_PROTO_UPDATE_XOR    (3)
 #define TNT_PROTO_UPDATE_OR     (4)
+#define TNT_PROTO_UPDATE_SPLICE (5)
 
 typedef struct {
 	unsigned long ns;

@@ -46,9 +46,7 @@ void
 tnt_tuples_free(tnt_tuples_t * tuples)
 {
 	tnt_tuple_t * t, * next;
-
 	for (t = tuples->head ; t ; t = next) {
-
 		next = t->next;
 		tnt_tuple_free(t);
 	}
@@ -60,12 +58,10 @@ tnt_tuples_add(tnt_tuples_t * tuples)
 	tnt_tuple_t * t = tnt_mem_alloc(sizeof(tnt_tuple_t));
 	if (t == NULL)
 		return NULL;
-
 	if (tuples->head == NULL)
 		tuples->head = t;
 	else
 		tuples->tail->next = t;
-
 	tuples->tail = t;
 	tuples->count++;
 	tnt_tuple_init(t);
@@ -168,23 +164,24 @@ tnt_tuple_add(tnt_tuple_t * tuple, char * data, int size)
 		tnt_mem_alloc(sizeof(tnt_tuple_field_t));
 	if (f == NULL)
 		return TNT_EMEMORY;
-
 	if (tuple->head == NULL)
 		tuple->head = f;
 	else
 		tuple->tail->next = f;
-
 	tuple->tail = f;
 	tuple->count++;
 
 	f->size = size;
 	f->size_leb = 0;
-	f->data = tnt_mem_alloc(size);
 	f->next = NULL;
+	f->data = NULL;
 
-	if (f->data == NULL) {
-		tnt_mem_free(f);
-		return TNT_EMEMORY;
+	if (size > 0) {
+		f->data = tnt_mem_alloc(size);
+		if (f->data == NULL) {
+			tnt_mem_free(f);
+			return TNT_EMEMORY;
+		}
 	}
 
 	f->size_leb = tnt_leb128_size(size);
@@ -214,7 +211,6 @@ tnt_tuple_pack(tnt_tuple_t * tuple, char ** data, int * size)
 	for (f = tuple->head ; f ; f = f->next) {
 		tnt_leb128_write(p, f->size);
 		p += f->size_leb;
-
 		memcpy(p, f->data, f->size); 
 		p += f->size;
 	}
@@ -232,7 +228,6 @@ tnt_tuple_pack_to(tnt_tuple_t * tuple, char * dest)
 	for (f = tuple->head ; f ; f = f->next) {
 		tnt_leb128_write(dest, f->size);
 		dest += f->size_leb;
-
 		memcpy(dest, f->data, f->size); 
 		dest += f->size;
 	}
