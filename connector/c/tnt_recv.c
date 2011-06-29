@@ -125,7 +125,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		return TNT_EPROTO;
 	}
 
-	/* error/reply */
+	/* BOX_QUIET flag or error/reply req */
 	if (hdr->hdr.len == 4) {
 		t->error = tnt_io_recv(t, buffer + sizeof(tnt_proto_header_t),
 				sizeof(tnt_proto_header_resp_t) -
@@ -141,11 +141,9 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 			t->error = TNT_EAGAIN;
 			return 0;
 		}
+		return 0;
 	}
 
-	char * p = NULL;
-	char * data = NULL;
-	int size = hdr->hdr.len;
 	if ((rcv->op != TNT_RECV_SELECT) && (hdr->hdr.len == 8)) {
 		/* count only - insert, update, delete */
 		t->error = tnt_io_recv(t, buffer + sizeof(tnt_proto_header_t),
@@ -153,30 +151,29 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 				sizeof(tnt_proto_header_t));
 		if (t->error != TNT_EOK)
 			return -1;
+		rcv->count = *(unsigned long*)(buffer +
+			sizeof(tnt_proto_header_resp_t));
+		return 0;
+	} 
 
-		rcv->count = *(unsigned long*)(buffer + sizeof(tnt_proto_header_resp_t));
-	} else {
-		data = tnt_mem_alloc(size);
-		if (data == NULL) {
-			t->error = TNT_EMEMORY;
-			return -1;
-		}
-
-		p = data;
-		t->error = tnt_io_recv(t, p, size);
-		if (t->error != TNT_EOK) {
-			tnt_mem_free(data);
-			return -1;
-		}
-
-		hdr->code = *(unsigned long*)(p); 
-		p += sizeof(unsigned long);
-		size -= 4;
-
-		rcv->count = *(unsigned long*)(p);
-		p += sizeof(unsigned long);
-		size -= 4;
+	int size = hdr->hdr.len;
+	char * data = tnt_mem_alloc(size);
+	if (data == NULL) {
+		t->error = TNT_EMEMORY;
+		return -1;
 	}
+	char * p = data;
+	t->error = tnt_io_recv(t, p, size);
+	if (t->error != TNT_EOK) {
+		tnt_mem_free(data);
+		return -1;
+	}
+	hdr->code = *(unsigned long*)(p); 
+	p += sizeof(unsigned long);
+	size -= 4;
+	rcv->count = *(unsigned long*)(p);
+	p += sizeof(unsigned long);
+	size -= 4;
 
 	switch (rcv->op) {
 	/* <insert_response_body> ::= <count> | <count><fq_tuple> 
@@ -184,12 +181,11 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 	*/
 	case TNT_RECV_INSERT:
 	case TNT_RECV_UPDATE:
-		if (hdr->hdr.len == 8) /* count only */
-			break;
 		t->error = tnt_recv_fqtuple(rcv, p, size, 1);
 		break;
 	/* <delete_response_body> ::= <count> */
 	case TNT_RECV_DELETE:
+		/* unreach */
 		break;
 	/* <select_response_body> ::= <count><fq_tuple>* */
 	case TNT_RECV_SELECT:
@@ -200,9 +196,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		t->error = TNT_EPROTO;
 		break;
 	}
-
 	if (data)
 		tnt_mem_free(data);
-
 	return (t->error == TNT_EOK) ? 0 : -1;
 }
