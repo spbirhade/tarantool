@@ -49,15 +49,21 @@ tnt_bench_init(tnt_bench_t * bench,
 
 	tnt_bench_test_init(&bench->tests);
 
-	bench->t = tnt_init(opt->proto, opt->rbuf, opt->sbuf);
+	bench->t = tnt_alloc();
 	if (bench->t == NULL)
 		return -1;
 
-	if (tnt_set_auth(bench->t, opt->auth, opt->mech,
-		opt->id,
-		(unsigned char*)opt->key, opt->key_size) == -1)
-		return -1;
+	tnt_set(bench->t, TNT_OPT_PROTO, opt->proto);
+	tnt_set(bench->t, TNT_OPT_HOSTNAME, opt->host);
+	tnt_set(bench->t, TNT_OPT_PORT, opt->port);
+	tnt_set(bench->t, TNT_OPT_SEND_BUF, opt->sbuf);
+	tnt_set(bench->t, TNT_OPT_RECV_BUF, opt->rbuf);
+	tnt_set(bench->t, TNT_OPT_AUTH, opt->auth);
+	tnt_set(bench->t, TNT_OPT_AUTH_ID, opt->id);
+	tnt_set(bench->t, TNT_OPT_AUTH_KEY, opt->key, opt->key_size);
 
+	if (tnt_init(bench->t) == -1)
+		return -1;
 	return 0;
 }
 
@@ -125,7 +131,7 @@ tnt_bench_set_std_memcache(tnt_bench_t * bench)
 int
 tnt_bench_connect(tnt_bench_t * bench)
 {
-	return tnt_connect(bench->t, bench->opt->host, bench->opt->port);
+	return tnt_connect(bench->t);
 }
 
 void

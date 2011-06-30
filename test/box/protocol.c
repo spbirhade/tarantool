@@ -7,12 +7,17 @@
 int
 main()
 {
-	tnt_t * t = tnt_init(TNT_PROTO_RW, 0, 0);
+	tnt_t * t = tnt_alloc();
+	if (t == NULL)
+		return 1;
 
-	if (tnt_connect(t, "localhost", 33013) == -1) {
+	tnt_set(t, TNT_OPT_HOSTNAME, "localhost");
+	if (tnt_init(t) == -1)
+		return 1;
 
-	  tnt_free(t);
-	  return 1;
+	if (tnt_connect(t) == -1) {
+		tnt_free(t);
+		return 1;
 	}
 
 	{

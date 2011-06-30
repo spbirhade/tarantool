@@ -32,8 +32,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
-#include <tnt_aes.h>
-#include <tnt_cmac.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_auth_sasl.h>
@@ -41,7 +41,7 @@
 static char*
 tnt_auth_sasl_proto(tnt_t * t)
 {
-	switch (t->proto) {
+	switch (t->opt.proto) {
 	case TNT_PROTO_ADMIN:
 		return "admin";
 	case TNT_PROTO_RW:
@@ -93,15 +93,14 @@ tnt_auth_sasl_do(tnt_t * t, Gsasl * ctx, char * mech)
 
 	char utk[64];
 	snprintf(utk, sizeof(utk), "%s:%s",
-		(char*)t->auth_id, tnt_auth_sasl_proto(t));
-
+		(char*)t->opt.auth_id, tnt_auth_sasl_proto(t));
 	if (!strcmp(mech, "ANONYMOUS")) {
 		gsasl_property_set(session, GSASL_ANONYMOUS_TOKEN, utk);
 		goto negotiate;
 	}
 
 	gsasl_property_set(session, GSASL_AUTHID, utk);
-	gsasl_property_set(session, GSASL_PASSWORD, (char*)t->auth_key);
+	gsasl_property_set(session, GSASL_PASSWORD, (char*)t->opt.auth_key);
 
 	if (!strcmp(mech, "DIGEST-MD5")) {
 		gsasl_property_set(session, GSASL_SERVICE, "tarantool");
@@ -113,8 +112,7 @@ tnt_auth_sasl_do(tnt_t * t, Gsasl * ctx, char * mech)
 
 		gsasl_property_set(session, GSASL_HOSTNAME, host);
 	}
-
-negotiate:; /* < making compiler happy */
+negotiate:;
 	tnt_error_t e = tnt_auth_sasl_sendfirst(t, session);
 	gsasl_finish(session);
 	return e;
@@ -126,10 +124,9 @@ tnt_auth_sasl(tnt_t * t)
 	char * sasl_mechs[] = {
 		"PLAIN", "ANONYMOUS", "CRAM-MD5", "DIGEST-MD5", "SCRAM-SHA-1", NULL
 	};
-
 	int i;
 	for (i = 0 ; sasl_mechs[i] ; i++)
-		if (!strcmp(sasl_mechs[i], t->auth_mech))
+		if (!strcmp(sasl_mechs[i], t->opt.auth_mech))
 			break;
 	if (sasl_mechs[i] == NULL)
 		return TNT_EFAIL;
@@ -138,7 +135,7 @@ tnt_auth_sasl(tnt_t * t)
 	if (gsasl_init(&ctx) != GSASL_OK)
 		return TNT_EFAIL;
 
-	tnt_error_t r = tnt_auth_sasl_do(t, ctx, t->auth_mech);
+	tnt_error_t r = tnt_auth_sasl_do(t, ctx, t->opt.auth_mech);
 	gsasl_done(ctx);
 	return r;
 }

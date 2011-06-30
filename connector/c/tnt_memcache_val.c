@@ -34,9 +34,6 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
-#include <tnt.h>
-#include <tnt_io.h>
-
 #include <tnt_memcache_val.h>
 
 void
@@ -56,7 +53,6 @@ tnt_memcache_val_free(tnt_memcache_vals_t * values)
 		if (values->values[i].value)
 			tnt_mem_free(values->values[i].value);
 	}
-
 	if (values->values)
 		tnt_mem_free(values->values);
 }
@@ -67,7 +63,6 @@ tnt_memcache_val_alloc(tnt_memcache_vals_t * values, int count)
 	values->values = tnt_mem_alloc(sizeof(tnt_memcache_val_t) * count);
 	if (values->values == NULL)
 		return -1;
-	
 	memset(values->values, 0, sizeof(tnt_memcache_val_t) * count);
 	values->count = count;
 	return 0;

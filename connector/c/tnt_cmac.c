@@ -67,14 +67,14 @@
 } while (0)
 
 void
-tnt_aes_cmac_init(tnt_aes_cmac_ctx *ctx)
+tnt_aes_cmac_init(tnt_aes_cmac_ctx_t *ctx)
 {
 	memset(ctx->X, 0, sizeof ctx->X);
 	ctx->M_n = 0;
 }
 
 void
-tnt_aes_cmac_setkey(tnt_aes_cmac_ctx *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_LENGTH])
+tnt_aes_cmac_setkey(tnt_aes_cmac_ctx_t *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_LENGTH])
 {
 	tnt_aes_set_key_enc_only(&ctx->aes, key, 128);
 }
@@ -84,7 +84,7 @@ tnt_aes_cmac_setkey(tnt_aes_cmac_ctx *ctx, const u_int8_t key[TNT_AES_CMAC_KEY_L
 #endif
 
 void
-tnt_aes_cmac_update(tnt_aes_cmac_ctx *ctx, const u_int8_t *data, u_int len)
+tnt_aes_cmac_update(tnt_aes_cmac_ctx_t *ctx, const u_int8_t *data, u_int len)
 {
 	u_int mlen;
 
@@ -111,7 +111,7 @@ tnt_aes_cmac_update(tnt_aes_cmac_ctx *ctx, const u_int8_t *data, u_int len)
 }
 
 void
-tnt_aes_cmac_final(u_int8_t digest[TNT_AES_CMAC_DIGEST_LENGTH], tnt_aes_cmac_ctx *ctx)
+tnt_aes_cmac_final(u_int8_t digest[TNT_AES_CMAC_DIGEST_LENGTH], tnt_aes_cmac_ctx_t *ctx)
 {
 	u_int8_t K[16];
 

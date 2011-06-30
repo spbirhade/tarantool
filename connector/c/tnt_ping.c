@@ -33,6 +33,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -44,13 +46,13 @@ int
 tnt_ping(tnt_t * t, int reqid)
 {
 	tnt_proto_header_t hdr;
-	hdr.type  = TNT_PROTO_TYPE_PING;
-	hdr.len   = 0;
+	hdr.type = TNT_PROTO_TYPE_PING;
+	hdr.len = 0;
 	hdr.reqid = reqid;
 
 	struct iovec v[1];
 	v[0].iov_base = &hdr;
-	v[0].iov_len  = sizeof(tnt_proto_header_t);
+	v[0].iov_len = sizeof(tnt_proto_header_t);
 
 	t->error = tnt_io_sendv(t, v, 1);
 	return (t->error == TNT_EOK) ? 0 : -1;

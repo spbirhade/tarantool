@@ -39,10 +39,14 @@ static tnt_dupf_t     _tnt_dup     = (tnt_dupf_t)strdup;
 void
 tnt_mem_init(tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f)
 {
-	_tnt_malloc  = m;
-	_tnt_realloc = r;
-	_tnt_dup     = d;
-	_tnt_free    = f;
+	if (m)
+		_tnt_malloc = m;
+	if (r)
+		_tnt_realloc = r;
+	if (d)
+		_tnt_dup = d;
+	if (f)
+		_tnt_free = f;
 }
 
 void*

@@ -54,21 +54,20 @@
 
 #define TNT_AES_MAXKEYBITS	(256)
 #define TNT_AES_MAXKEYBYTES	(AES_MAXKEYBITS/8)
-
-/* for 256-bit keys, fewer for less */
 #define TNT_AES_MAXROUNDS	(14)
 
 typedef unsigned char  u8;
 typedef unsigned short u16;
 typedef unsigned int   u32;
 
-/*  The structure for key information */
-typedef struct {
-	int	enc_only;                        /* context contains only encrypt schedule */
-	int	Nr;                              /* key-length-dependent number of rounds */
-	u32	ek[4 * (TNT_AES_MAXROUNDS + 1)]; /* encrypt key schedule */
-	u32	dk[4 * (TNT_AES_MAXROUNDS + 1)]; /* decrypt key schedule */
-} tnt_aes_ctx_t;
+typedef struct tnt_aes_ctx_t tnt_aes_ctx_t;
+
+struct tnt_aes_ctx_t {
+	int	enc_only;
+	int	Nr;
+	u32	ek[4 * (TNT_AES_MAXROUNDS + 1)];
+	u32	dk[4 * (TNT_AES_MAXROUNDS + 1)];
+};
 
 int
 tnt_aes_set_key(tnt_aes_ctx_t *, const u_char *, int);

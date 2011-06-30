@@ -35,6 +35,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_memcache_val.h>
@@ -63,7 +65,7 @@ tnt_memcache_storage(tnt_t * t, char * cmd,
 	v[2].iov_base = "\r\n";
 	v[2].iov_len  = 2;
 
-	int r = tnt_io_send_rawv(t, v, 3);
+	int r = tnt_io_sendv_raw(t, v, 3);
 	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
@@ -171,7 +173,7 @@ tnt_memcache_get_tx(tnt_t * t, bool cas, int count, char ** keys)
 		}
 	}
 
-	int r = tnt_io_send_rawv(t, v, vc);
+	int r = tnt_io_sendv_raw(t, v, vc);
 	tnt_mem_free(v);
 	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
@@ -312,7 +314,6 @@ lf:
 	t->error = tnt_io_recv_expect(t, "END\r\n");
 	if (t->error != TNT_EOK)
 		return -1;
-
 	return 0;
 error:
 	tnt_memcache_val_free(values);
@@ -338,7 +339,7 @@ tnt_memcache_delete(tnt_t * t, char * key, int time)
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 
-	int r = tnt_io_send_rawv(t, v, 1);
+	int r = tnt_io_sendv_raw(t, v, 1);
 	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
@@ -369,7 +370,7 @@ tnt_memcache_unary(tnt_t * t, char * cmd,
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 
-	int r = tnt_io_send_rawv(t, v, 1);
+	int r = tnt_io_sendv_raw(t, v, 1);
 	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;
@@ -435,7 +436,7 @@ tnt_memcache_flush_all(tnt_t * t, int time)
 	v[0].iov_base = buf;
 	v[0].iov_len  = len;
 
-	int r = tnt_io_send_rawv(t, v, 1);
+	int r = tnt_io_sendv_raw(t, v, 1);
 	if (r <= 0) {
 		t->error = TNT_ESYSTEM;
 		return -1;

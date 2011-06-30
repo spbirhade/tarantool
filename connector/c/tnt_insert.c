@@ -33,6 +33,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_buf.h>
+#include <tnt_opt.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>

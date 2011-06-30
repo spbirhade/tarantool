@@ -33,6 +33,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -44,8 +46,7 @@ tnt_recv_init(tnt_recv_t * rcv)
 {
 	rcv->count = 0;
 	rcv->reqid = 0;
-	rcv->code  = 0;
-
+	rcv->code = 0;
 	tnt_tuples_init(&rcv->tuples);
 }
 
@@ -74,16 +75,13 @@ tnt_recv_fqtuple(tnt_recv_t * rcv, char * data, unsigned long size,
 			tnt_tuples_free(&rcv->tuples);
 			return TNT_EPROTO;
 		}
-
 		off += 4, p += 4;
 		s   += 4;
-
 		tnt_error_t r = tnt_tuples_unpack(&rcv->tuples, p, s);
 		if (r != TNT_EOK) {
 			tnt_tuples_free(&rcv->tuples);
 			return r;
 		}
-
 		off += s, p += s;
 	}
 
@@ -102,7 +100,7 @@ tnt_recv(tnt_t * t, tnt_recv_t * rcv)
 		(tnt_proto_header_resp_t*)buffer;
 
 	rcv->reqid = hdr->hdr.reqid;
-	rcv->code  = 0;
+	rcv->code = 0;
 	rcv->count = 0;
 
 	switch (hdr->hdr.type) {

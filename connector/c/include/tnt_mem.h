@@ -32,7 +32,8 @@ typedef void * (*tnt_dupf_t)(char * sz);
 typedef void   (*tnt_freef_t)(void * ptr);
 
 void
-tnt_mem_init(tnt_mallocf_t m, tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
+tnt_mem_init(tnt_mallocf_t m,
+	tnt_reallocf_t r, tnt_dupf_t d, tnt_freef_t f);
 
 void*
 tnt_mem_alloc(int size);

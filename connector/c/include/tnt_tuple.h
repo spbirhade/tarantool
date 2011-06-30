@@ -28,14 +28,14 @@
 
 typedef struct _tnt_tuple_field_t {
 	char * data;
-	unsigned long size;
-	unsigned long size_leb;
+	int size;
+	int size_leb;
 	struct _tnt_tuple_field_t * next;
 } tnt_tuple_field_t;
 
 typedef struct _tnt_tuple_t {
-	unsigned long count;
-	unsigned long size_enc;
+	int count;
+	int size_enc;
 	tnt_tuple_field_t * head;
 	tnt_tuple_field_t * tail;
 	struct _tnt_tuple_t * next;

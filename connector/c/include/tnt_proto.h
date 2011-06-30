@@ -1,44 +1,26 @@
 #ifndef TNT_PROTO_H_
 #define TNT_PROTO_H_
 
-/*
- * Copyright (C) 2011 Mail.RU
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-
-/* doc/box-protocol.txt */
-
 #define TNT_PROTO_TYPE_INSERT (13)
 #define TNT_PROTO_TYPE_SELECT (17)
 #define TNT_PROTO_TYPE_UPDATE (19)
 #define TNT_PROTO_TYPE_DELETE (20)
 #define TNT_PROTO_TYPE_PING   (65280)
 
-typedef struct {
+typedef struct tnt_proto_header_t      tnt_proto_header_t;
+typedef struct tnt_proto_header_resp_t tnt_proto_header_resp_t;
+typedef struct tnt_proto_header_any_t  tnt_proto_header_any_t;
+typedef struct tnt_proto_insert_t      tnt_proto_insert_t;
+typedef struct tnt_proto_update_t      tnt_proto_update_t;
+typedef struct tnt_proto_update_op_t   tnt_proto_update_op_t;
+typedef struct tnt_proto_delete_t      tnt_proto_delete_t;
+typedef struct tnt_proto_select_t      tnt_proto_select_t;
+
+struct tnt_proto_header_t {
 	unsigned long type;
 	unsigned long len;
 	unsigned long reqid;
-} tnt_proto_header_t;
+};
 
 #define TNT_PROTO_IS_OK(V)    (((V) & 0x00) == 0x0)
 #define TNT_PROTO_IS_AGAIN(V) (((V) & 0x01) == 0x1)
@@ -100,15 +82,15 @@ typedef struct {
 #define TNT_PROTO_ERR_CODE_INDEX_VIOLATION      (0x00003802)
 #define TNT_PROTO_ERR_CODE_NO_SUCH_NAMESPACE    (0x00003902)
 
-typedef struct {
+struct tnt_proto_header_resp_t {
 	tnt_proto_header_t hdr;
 	unsigned long code;
-} tnt_proto_header_resp_t;
+};
 
-typedef struct {
+struct tnt_proto_tuple_t {
 	unsigned long card;
 	unsigned char field[];
-} tnt_proto_tuple_t;
+};
 
 #define TNT_PROTO_FLAG_RETURN    (0x01)
 #define TNT_PROTO_FLAG_ADD       (0x02)
@@ -116,11 +98,11 @@ typedef struct {
 #define TNT_PROTO_FLAG_BOX_QUIET (0x08)
 #define TNT_PROTO_FLAG_NOT_STORE (0x10)
 
-typedef struct {
+struct tnt_proto_insert_t {
 	unsigned long ns;
 	unsigned long flags;
 	/* tuple data */
-} tnt_proto_insert_t;
+};
 
 #define TNT_PROTO_UPDATE_ASSIGN (0)
 #define TNT_PROTO_UPDATE_ADD    (1)
@@ -129,31 +111,31 @@ typedef struct {
 #define TNT_PROTO_UPDATE_OR     (4)
 #define TNT_PROTO_UPDATE_SPLICE (5)
 
-typedef struct {
+struct tnt_proto_update_t {
 	unsigned long ns;
 	unsigned long flags;
 	/* tuple data */
 	/* count */
 	/* operation */
-} tnt_proto_update_t;
+};
 
-typedef struct {
+struct tnt_proto_update_op_t {
 	unsigned long field;
 	unsigned char op;
 	/* op_arg */
-} tnt_proto_update_op_t;
+};
 
-typedef struct {
+struct tnt_proto_delete_t {
 	unsigned long ns;
 	/* tuple data */
-} tnt_proto_delete_t;
+};
 
-typedef struct {
+struct tnt_proto_select_t {
 	unsigned long ns;
 	unsigned long index;
 	unsigned long offset;
 	unsigned long limit;
 	/* tuple data */
-} tnt_proto_select_t;
+};
 
 #endif

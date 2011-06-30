@@ -47,7 +47,6 @@ tnt_map_init(tnt_map_t * map, int per)
 	map->servers_max    = 2;
 	map->servers_per    = per;
 	map->servers_online = 0;
-
 	map->servers = tnt_mem_alloc(sizeof(tnt_map_server_t) *
 			map->servers_max);
 	if (map->servers == NULL)
@@ -62,13 +61,11 @@ tnt_map_free(tnt_map_t * map)
 {
 	if (map->map)
 		tnt_mem_free(map->map);
-
 	int i;
 	for (i = 0 ; i < map->servers_max ; i++) {
 		if (map->servers[i].host)
 			tnt_mem_free(map->servers[i].host);
 	}
-
 	if (map->servers)
 		tnt_mem_free(map->servers);
 }
@@ -121,7 +118,6 @@ void
 tnt_map_remap(tnt_map_t * map, int idx, char * host, int port)
 {
 	tnt_mem_free(map->servers[idx].host);
-
 	map->servers[idx].host = tnt_mem_dup(host);
 	map->servers[idx].port = port;
 }
@@ -130,7 +126,6 @@ static void
 tnt_map_digest(unsigned char * digest, char * key, int size)
 {
 	tnt_md5_t md5;
-
     tnt_md5_init(&md5);
     tnt_md5_update(&md5, (unsigned char*)key, size);
     tnt_md5_final(digest, &md5);
@@ -334,14 +329,12 @@ tnt_map(tnt_map_t * map, char * key, int size)
 				i = -1;
 				continue;
 			}
-
 			if (map->servers[i].status == TNT_MAP_ONLINE) {
 				map->servers[i].stat_maps++;
 				return &map->servers[i];
 			}
 		}
 	}
-
 	s->stat_maps++;
 	return s;
 }
@@ -351,14 +344,12 @@ tnt_map_show(tnt_map_t * map)
 {
 	if (map->map == NULL)
 		return;
-
 	int i;
 	for (i = 0 ; i < map->servers_count ; i++) {
 		char addr[64];
 		snprintf(addr, sizeof(addr), "%s:%d", 
 			map->servers[i].host,
 			map->servers[i].port);
-
 		printf("[%2d] %-14s %8s (mem: %3d / %3d) maps: %llu\n",
 			i,
 			addr,

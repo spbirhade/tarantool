@@ -47,23 +47,27 @@
 #define TNT_AES_CMAC_KEY_LENGTH    (16)
 #define TNT_AES_CMAC_DIGEST_LENGTH (16)
 
-typedef struct {
+typedef struct tnt_aes_cmac_ctx_t tnt_aes_cmac_ctx_t;
+
+struct tnt_aes_cmac_ctx_t {
 	tnt_aes_ctx_t aes;
-	u_int8_t      X[16];
-	u_int8_t	  M_last[16];
-	u_int		  M_n;
-} tnt_aes_cmac_ctx;
+	u_int8_t X[16];
+	u_int8_t M_last[16];
+	u_int M_n;
+};
 
 void
-tnt_aes_cmac_init(tnt_aes_cmac_ctx *);
+tnt_aes_cmac_init(tnt_aes_cmac_ctx_t*);
 
 void
-tnt_aes_cmac_setkey(tnt_aes_cmac_ctx *, const u_int8_t [TNT_AES_CMAC_KEY_LENGTH]);
+tnt_aes_cmac_setkey(tnt_aes_cmac_ctx_t*,
+	const u_int8_t [TNT_AES_CMAC_KEY_LENGTH]);
 
 void
-tnt_aes_cmac_update(tnt_aes_cmac_ctx *, const u_int8_t *, u_int);
+tnt_aes_cmac_update(tnt_aes_cmac_ctx_t*, const u_int8_t*, u_int);
 
 void
-tnt_aes_cmac_final(u_int8_t [TNT_AES_CMAC_DIGEST_LENGTH], tnt_aes_cmac_ctx *);
+tnt_aes_cmac_final(u_int8_t[TNT_AES_CMAC_DIGEST_LENGTH],
+	tnt_aes_cmac_ctx_t*);
 
 #endif

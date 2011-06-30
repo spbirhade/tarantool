@@ -28,9 +28,11 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
-#include <tnt_map.h>
 #include <tnt_io.h>
+#include <tnt_map.h>
 #include <tnt_proto.h>
 #include <tnt_tuple.h>
 #include <tnt_insert.h>

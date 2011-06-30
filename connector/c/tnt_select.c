@@ -33,6 +33,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -64,10 +66,8 @@ tnt_select(tnt_t * t, int reqid, int ns, int index, int offset,
 	struct iovec v[3];
 	v[0].iov_base = &hdr;
 	v[0].iov_len  = sizeof(tnt_proto_header_t);
-
 	v[1].iov_base = &hdr_sel;
 	v[1].iov_len  = sizeof(tnt_proto_select_t);
-
 	v[2].iov_base = data_enc;
 	v[2].iov_len  = data_enc_size;
 

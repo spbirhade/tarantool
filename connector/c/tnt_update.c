@@ -33,6 +33,8 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
+#include <tnt_buf.h>
+#include <tnt_opt.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_tuple.h>
@@ -43,10 +45,10 @@
 void
 tnt_update_init(tnt_update_t * update)
 {
-	update->count    = 0;
+	update->count = 0;
 	update->size_enc = 0;
-	update->head     = NULL;
-	update->tail     = NULL;
+	update->head = NULL;
+	update->tail = NULL;
 }
 
 void
@@ -66,18 +68,18 @@ tnt_update_alloc(tnt_update_t * update, int type, int field)
 	tnt_update_op_t * op = tnt_mem_alloc(sizeof(tnt_update_op_t));
 	if (op == NULL)
 		return NULL;
-	if (update->head == NULL)
-		update->head = op;
-	else
-		update->tail->next = op;
-	update->tail = op;
-	update->count++;
 	op->op = type;
 	op->field = field;
 	op->size = 0;
 	op->size_leb = 0;
 	op->next = NULL;
 	op->data = NULL;
+	if (update->head == NULL)
+		update->head = op;
+	else
+		update->tail->next = op;
+	update->tail = op;
+	update->count++;
 	return op;
 }
 

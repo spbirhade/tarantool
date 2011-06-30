@@ -30,18 +30,44 @@
 
 #include <tnt_error.h>
 #include <tnt_mem.h>
-#include <tnt_aes.h>
-#include <tnt_cmac.h>
+#include <tnt_opt.h>
+#include <tnt_buf.h>
 #include <tnt.h>
 #include <tnt_io.h>
 #include <tnt_auth.h>
+#include <tnt_aes.h>
+#include <tnt_cmac.h>
 #include <tnt_auth_chap.h>
 #include <tnt_auth_sasl.h>
 
 tnt_error_t
+tnt_auth_validate(tnt_t * t)
+{
+	switch (t->opt.auth) {
+	case TNT_AUTH_NONE:
+		return TNT_EOK;
+	case TNT_AUTH_CHAP:
+		if (t->opt.auth_id == NULL)
+			return TNT_EBADVAL;
+		if (t->opt.auth_key == NULL)
+			return TNT_EBADVAL;
+		if ((t->opt.auth_id_size + 1) > TNT_AUTH_CHAP_ID_SIZE)
+			return TNT_EBADVAL;
+		if (t->opt.auth_key_size != TNT_AES_CMAC_KEY_LENGTH)
+			return TNT_EBADVAL;
+		break;
+	case TNT_AUTH_SASL:
+		if (t->opt.auth_mech == NULL)
+			return TNT_EBADVAL;
+		break;
+	}
+	return TNT_EOK;
+}
+
+tnt_error_t
 tnt_auth(tnt_t * t)
 {
-	switch (t->auth_type) {
+	switch (t->opt.auth) {
 	case TNT_AUTH_NONE:
 		return TNT_EOK;
 	case TNT_AUTH_CHAP:

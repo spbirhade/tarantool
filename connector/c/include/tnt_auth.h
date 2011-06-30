@@ -27,6 +27,9 @@
  */
 
 tnt_error_t
+tnt_auth_validate(tnt_t * t);
+
+tnt_error_t
 tnt_auth(tnt_t * t);
 
 #endif

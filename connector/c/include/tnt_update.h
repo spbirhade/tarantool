@@ -37,16 +37,16 @@ typedef	enum {
 } tnt_update_type_t;
 
 typedef struct _tnt_update_op_t {
-	unsigned char op;
-	unsigned long field;
+	char op;
+	int field;
 	char * data;
-	unsigned long size;
-	unsigned long size_leb;
+	int size;
+	int size_leb;
 	struct _tnt_update_op_t * next;
 } tnt_update_op_t;
 
 typedef struct {
-	unsigned long count;
+	int count;
 	int size_enc;
 	tnt_update_op_t * head;
 	tnt_update_op_t * tail;
