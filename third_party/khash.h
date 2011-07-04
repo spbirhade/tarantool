@@ -226,7 +226,7 @@ static const double __ac_HASH_UPPER = 0.77;
                         h->upper_bound = (khint_t)(h->n_buckets * __ac_HASH_UPPER + 0.5); \
                         ++h->resize_cnt; \
                 } \
-		say_crit("RESIZE of %i took %.3f sec",h->size, (ev_now_update(), ev_now()) - start); \
+		say_crit("kh_resize(%p) size:%i took %.3f sec", h, h->size, (ev_now_update(), ev_now()) - start); \
         } \
         static inline void kh_clear_##name(kh_##name##_t *h) \
         { \
@@ -250,6 +250,7 @@ static const double __ac_HASH_UPPER = 0.77;
                         x = site = h->n_buckets; k = __hash_func(key); i = k % h->n_buckets; \
                         if (__ac_isempty(h->flags, i)) x = i; \
                         else { \
+				ev_tstamp start = (ev_now_update(), ev_now()); \
                                 inc = 1 + k % (h->n_buckets - 1); last = i; \
                                 while (!__ac_isempty(h->flags, i) && (__ac_isdel(h->flags, i) || !__hash_equal(h->keys[i], key))) { \
                                         if (__ac_isdel(h->flags, i)) site = i; \
@@ -261,6 +262,9 @@ static const double __ac_HASH_UPPER = 0.77;
                                         if (__ac_isempty(h->flags, i) && site != h->n_buckets) x = site; \
                                         else x = i; \
                                 } \
+				start -= (ev_now_update(), ev_now());	\
+				if (start > 0.1) 			\
+					say_crit("kh_put(%p) collision resolution took %.3f sec", h, start); \
                         } \
                 } \
                 if (__ac_isempty(h->flags, x)) { \
