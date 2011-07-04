@@ -141,4 +141,6 @@ void *tuple_field(struct box_tuple *tuple, size_t i);
 
 void memcached_init(void);
 bool memcached_tuple_expired(struct namespace * __unused__, struct box_tuple *tuple);
+
+void stat_box(struct tbuf *out, unsigned namespace, unsigned index);
 #endif

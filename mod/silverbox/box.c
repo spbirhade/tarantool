@@ -1344,6 +1344,34 @@ title(const char *fmt, ...)
 			       cfg.primary_port, cfg.secondary_port, cfg.admin_port);
 }
 
+void
+stat_box(struct tbuf *out, unsigned n, unsigned i)
+{
+	if (n > namespace_count - 1) {
+		tbuf_printf(out, "error: no such namespace" CRLF);
+		return;
+	}
+	if (i >= MAX_IDX) {
+		tbuf_printf(out, "error: no such index" CRLF);
+		return;
+	}
+	if (!namespace[n].enabled) {
+		tbuf_printf(out, "error: namespace is not enabled" CRLF);
+		return;
+	}
+	if (namespace[n].index[i].key_cardinality == 0) {
+		tbuf_printf(out, "error: index is not enabled" CRLF);
+		return;
+	}
+
+	if (namespace[n].index[i].type == HASH) {
+		tbuf_printf(out, "hash index statistics:" CRLF);
+		kh_stat(out, namespace[n].index[0].idx.int_hash);
+	} else {
+		; /* TODO: stat for other index types */
+	}
+}
+
 /*
  * desides whether the tuple expired or not.
  * any error is treated like a positive answer.

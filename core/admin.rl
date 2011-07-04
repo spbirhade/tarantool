@@ -39,6 +39,7 @@
 #include TARANTOOL_CONFIG
 #include <tbuf.h>
 #include <util.h>
+#include <mod/silverbox/box.h>
 
 static const char *help =
 	"available commands:" CRLF
@@ -50,6 +51,7 @@ static const char *help =
 	" - show slab" CRLF
 	" - show palloc" CRLF
 	" - show stat" CRLF
+	" - show stat <namespace> <index>" CRLF
 	" - save coredump" CRLF
 	" - save snapshot" CRLF
 	" - exec module command" CRLF
@@ -92,6 +94,15 @@ fail(struct tbuf *out, struct tbuf *err)
 	end(out);
 }
 
+static unsigned
+natoq(const char *start, const char *end)
+{
+	u64 num = 0;
+	while (start < end)
+		num = num * 10 + (*start++ - '0');
+	return num;
+}
+
 static int
 admin_dispatch(void)
 {
@@ -100,6 +111,7 @@ admin_dispatch(void)
 	int cs;
 	char *p, *pe;
 	char *strstart, *strend;
+	unsigned stat_namespace, stat_index;
 
 	while ((pe = memchr(fiber->rbuf->data, '\n', fiber->rbuf->len)) == NULL) {
 		if (fiber_bread(fiber->rbuf, 1) <= 0)
@@ -160,6 +172,12 @@ admin_dispatch(void)
 			}
 		}
 
+		action stat_box {
+			start(out);
+			stat_box(out, stat_namespace, stat_index);
+			end(out);
+		}
+
 		eol = "\n" | "\r\n";
 		show = "sh"("o"("w")?)?;
 		info = "in"("f"("o")?)?;
@@ -179,6 +197,11 @@ admin_dispatch(void)
 		string = [^\r\n]+ >{strstart = p;}  %{strend = p;};
 		reload = "re"("l"("o"("a"("d")?)?)?)?;
 
+		show_stat = (show " "+ stat		%{start(out); stat_print(out);end(out);}	|
+			     show " "+ stat " "+
+			     digit+ >{strstart = p;}	%{stat_namespace = natoq(strstart, p);} " "+
+			     digit+ >{strstart = p;}	%{stat_index = natoq(strstart, p);} %stat_box);
+
 		commands = (help			%help						|
 			    exit			%{return 0;}					|
 			    show " "+ info		%{start(out); mod_info(out); end(out);}		|
@@ -186,7 +209,7 @@ admin_dispatch(void)
 			    show " "+ configuration 	%show_configuration				|
 			    show " "+ slab		%{start(out); slab_stat(out); end(out);}	|
 			    show " "+ palloc		%{start(out); palloc_stat(out); end(out);}	|
-			    show " "+ stat		%{start(out); stat_print(out);end(out);}	|
+			    show_stat									|
 			    save " "+ coredump		%{coredump(60); ok(out);}			|
 			    save " "+ snapshot		%save_snapshot					|
 			    exec " "+ string		%mod_exec					|

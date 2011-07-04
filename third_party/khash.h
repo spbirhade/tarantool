@@ -110,22 +110,20 @@ static const uint32_t __ac_prime_list[__ac_HASH_PRIME_SIZE] =
 
 static const double __ac_HASH_UPPER = 0.77;
 
-#define kh_stat(buf, h) ( \
-        snprintf(buf, sizeof(buf), "\t%s:\r\n" \
-                                   "\t\tn_buckets: %"PRIu32"\r\n" \
-                                   "\t\tn_occupied: %"PRIu32"\r\n" \
-                                   "\t\tsize: %"PRIu32"\r\n" \
-                                   "\t\tavg_size: %0.f\r\n" \
-                                   "\t\tclears_cnt: %"PRIu64"\r\n" \
-                                   "\t\tresize_cnt: %"PRIu32"\r\n", \
-                 #h, \
-                 h->n_buckets, \
-                 h->n_occupied, \
-                 h->size, \
-                 h->avg_size, \
-                 h->clears_cnt, \
-                 h->resize_cnt) \
-)
+#define kh_stat(buf, h) (					    \
+		tbuf_printf(buf, "  n_buckets: %"PRIu32 CRLF	    \
+			    "  n_occupied: %"PRIu32 CRLF	    \
+			    "  size: %"PRIu32 CRLF		    \
+			    "  avg_size: %0.f" CRLF		    \
+			    "  clears_cnt: %"PRIu64 CRLF	    \
+			    "  resize_cnt: %"PRIu32 CRLF,	    \
+			    h->n_buckets,			    \
+			    h->n_occupied,			    \
+			    h->size,				    \
+			    h->avg_size,			    \
+			    h->clears_cnt,			    \
+			    h->resize_cnt)			    \
+		)
 
 #define KHASH_INIT(name, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal, realloc) \
         typedef struct { \
@@ -170,16 +168,17 @@ static const double __ac_HASH_UPPER = 0.77;
         { \
 		ev_tstamp start = (ev_now_update(), ev_now());	\
                 uint32_t *new_flags = 0; \
-                khint_t j = 1; \
+                khint_t j = 0; \
                 { \
                         khint_t t = __ac_HASH_PRIME_SIZE - 1; \
                         while (__ac_prime_list[t] > new_n_buckets) --t; \
                         new_n_buckets = __ac_prime_list[t+1]; \
                         if (h->size >= (khint_t)(new_n_buckets * __ac_HASH_UPPER + 0.5)) j = 0; \
                         else { \
-                                new_flags = (uint32_t*)realloc(NULL, ((new_n_buckets>>4) + 1) * sizeof(uint32_t)); \
-                                memset(new_flags, 0xaa, ((new_n_buckets>>4) + 1) * sizeof(uint32_t)); \
                                 if (h->n_buckets < new_n_buckets) { \
+					j = 1;				\
+					new_flags = (uint32_t*)realloc(NULL, ((new_n_buckets>>4) + 1) * sizeof(uint32_t)); \
+					memset(new_flags, 0xaa, ((new_n_buckets>>4) + 1) * sizeof(uint32_t)); \
                                         h->keys = (khkey_t*)realloc(h->keys, new_n_buckets * sizeof(khkey_t)); \
                                         if (kh_is_map) \
                                                 h->vals = (khval_t*)realloc(h->vals, new_n_buckets * sizeof(khval_t)); \

@@ -19,6 +19,7 @@ available commands:
  - show slab
  - show palloc
  - show stat
+ - show stat <namespace> <index>
  - save coredump
  - save snapshot
  - exec module command
@@ -83,6 +84,16 @@ statistics:
   UPDATE_FIELDS: { rps:  0    , total:  0           }
   DELETE:        { rps:  0    , total:  0           }
   EXPIRE:        { rps:  0    , total:  0           }
+...
+show stat 0 0
+---
+hash index statistics:
+  n_buckets: 0
+  n_occupied: 0
+  size: 0
+  avg_size: 0
+  clears_cnt: 0
+  resize_cnt: 0
 ...
 save coredump
 ---
