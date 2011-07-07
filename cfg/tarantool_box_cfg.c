@@ -24,8 +24,53 @@ cmpNameAtoms(NameAtom *a, NameAtom *b) {
 	return (a == NULL && b == NULL) ? 1 : 0;
 }
 
+void
+init_tarantool_cfg(tarantool_cfg *c) {
+	c->__confetti_flags = 0;
+
+	c->username = NULL;
+	c->coredump = 0;
+	c->admin_port = 0;
+	c->log_level = 0;
+	c->slab_alloc_arena = 0;
+	c->slab_alloc_minimal = 0;
+	c->slab_alloc_factor = 0;
+	c->work_dir = NULL;
+	c->pid_file = NULL;
+	c->logger = NULL;
+	c->logger_nonblock = 0;
+	c->io_collect_interval = 0;
+	c->backlog = 0;
+	c->readahead = 0;
+	c->snap_dir = NULL;
+	c->wal_dir = NULL;
+	c->primary_port = 0;
+	c->secondary_port = 0;
+	c->too_long_threshold = 0;
+	c->custom_proc_title = NULL;
+	c->memcached_port = 0;
+	c->memcached_namespace = 0;
+	c->memcached_expire = 0;
+	c->memcached_expire_per_loop = 0;
+	c->memcached_expire_full_sweep = 0;
+	c->snap_io_rate_limit = 0;
+	c->rows_per_wal = 0;
+	c->wal_fsync_delay = 0;
+	c->wal_writer_inbox_size = 0;
+	c->local_hot_standby = 0;
+	c->wal_dir_rescan_delay = 0;
+	c->panic_on_snap_error = 0;
+	c->panic_on_wal_error = 0;
+	c->remote_hot_standby = 0;
+	c->wal_feeder_ipaddr = NULL;
+	c->wal_feeder_port = 0;
+	c->namespace = NULL;
+}
+
 int
 fill_default_tarantool_cfg(tarantool_cfg *c) {
+	c->__confetti_flags = 0;
+
 	c->username = NULL;
 	c->coredump = 0;
 	c->admin_port = 0;
@@ -51,8 +96,9 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->secondary_port = 0;
 	c->too_long_threshold = 0.5;
 	c->custom_proc_title = NULL;
-	c->memcached = 0;
+	c->memcached_port = 0;
 	c->memcached_namespace = 23;
+	c->memcached_expire = 0;
 	c->memcached_expire_per_loop = 1024;
 	c->memcached_expire_full_sweep = 3600;
 	c->snap_io_rate_limit = 0;
@@ -68,6 +114,13 @@ fill_default_tarantool_cfg(tarantool_cfg *c) {
 	c->wal_feeder_port = 0;
 	c->namespace = NULL;
 	return 0;
+}
+
+void
+swap_tarantool_cfg(struct tarantool_cfg *c1, struct tarantool_cfg *c2) {
+	struct tarantool_cfg tmpcfg = *c1;
+	*c1 = *c2;
+	*c2 = tmpcfg;
 }
 
 static int
@@ -159,11 +212,14 @@ static NameAtom _name__too_long_threshold[] = {
 static NameAtom _name__custom_proc_title[] = {
 	{ "custom_proc_title", -1, NULL }
 };
-static NameAtom _name__memcached[] = {
-	{ "memcached", -1, NULL }
+static NameAtom _name__memcached_port[] = {
+	{ "memcached_port", -1, NULL }
 };
 static NameAtom _name__memcached_namespace[] = {
 	{ "memcached_namespace", -1, NULL }
+};
+static NameAtom _name__memcached_expire[] = {
+	{ "memcached_expire", -1, NULL }
 };
 static NameAtom _name__memcached_expire_per_loop[] = {
 	{ "memcached_expire_per_loop", -1, NULL }
@@ -538,7 +594,7 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 		if (opt->paramValue.stringval && c->custom_proc_title == NULL)
 			return CNF_NOMEMORY;
 	}
-	else if ( cmpNameAtoms( opt->name, _name__memcached) ) {
+	else if ( cmpNameAtoms( opt->name, _name__memcached_port) ) {
 		if (opt->paramType != numberType )
 			return CNF_WRONGTYPE;
 		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
@@ -548,9 +604,9 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGINT;
 		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
 			return CNF_WRONGRANGE;
-		if (check_rdonly && c->memcached != i32)
+		if (check_rdonly && c->memcached_port != i32)
 			return CNF_RDONLY;
-		c->memcached = i32;
+		c->memcached_port = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__memcached_namespace) ) {
 		if (opt->paramType != numberType )
@@ -565,6 +621,20 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 		if (check_rdonly && c->memcached_namespace != i32)
 			return CNF_RDONLY;
 		c->memcached_namespace = i32;
+	}
+	else if ( cmpNameAtoms( opt->name, _name__memcached_expire) ) {
+		if (opt->paramType != numberType )
+			return CNF_WRONGTYPE;
+		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
+		errno = 0;
+		long int i32 = strtol(opt->paramValue.numberval, NULL, 10);
+		if (i32 == 0 && errno == EINVAL)
+			return CNF_WRONGINT;
+		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
+			return CNF_WRONGRANGE;
+		if (check_rdonly && c->memcached_expire != i32)
+			return CNF_RDONLY;
+		c->memcached_expire = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__memcached_expire_per_loop) ) {
 		if (opt->paramType != numberType )
@@ -708,8 +778,6 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGINT;
 		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
 			return CNF_WRONGRANGE;
-		if (check_rdonly && c->remote_hot_standby != i32)
-			return CNF_RDONLY;
 		c->remote_hot_standby = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__wal_feeder_ipaddr) ) {
@@ -717,8 +785,6 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGTYPE;
 		c->__confetti_flags &= ~CNF_FLAG_STRUCT_NOTSET;
 		errno = 0;
-		if (check_rdonly && ( (opt->paramValue.stringval == NULL && c->wal_feeder_ipaddr == NULL) || strcmp(opt->paramValue.stringval, c->wal_feeder_ipaddr) != 0))
-			return CNF_RDONLY;
 		c->wal_feeder_ipaddr = (opt->paramValue.stringval) ? strdup(opt->paramValue.stringval) : NULL;
 		if (opt->paramValue.stringval && c->wal_feeder_ipaddr == NULL)
 			return CNF_NOMEMORY;
@@ -733,8 +799,6 @@ acceptValue(tarantool_cfg* c, OptDef* opt, int check_rdonly) {
 			return CNF_WRONGINT;
 		if ( (i32 == LONG_MIN || i32 == LONG_MAX) && errno == ERANGE)
 			return CNF_WRONGRANGE;
-		if (check_rdonly && c->wal_feeder_port != i32)
-			return CNF_RDONLY;
 		c->wal_feeder_port = i32;
 	}
 	else if ( cmpNameAtoms( opt->name, _name__namespace) ) {
@@ -1034,8 +1098,9 @@ typedef enum IteratorState {
 	S_name__secondary_port,
 	S_name__too_long_threshold,
 	S_name__custom_proc_title,
-	S_name__memcached,
+	S_name__memcached_port,
 	S_name__memcached_namespace,
+	S_name__memcached_expire,
 	S_name__memcached_expire_per_loop,
 	S_name__memcached_expire_full_sweep,
 	S_name__snap_io_rate_limit,
@@ -1307,17 +1372,17 @@ again:
 				return NULL;
 			}
 			snprintf(buf, PRINTBUFLEN-1, "custom_proc_title");
-			i->state = S_name__memcached;
+			i->state = S_name__memcached_port;
 			return buf;
-		case S_name__memcached:
+		case S_name__memcached_port:
 			*v = malloc(32);
 			if (*v == NULL) {
 				free(i);
 				out_warning(CNF_NOMEMORY, "No memory to output value");
 				return NULL;
 			}
-			sprintf(*v, "%"PRId32, c->memcached);
-			snprintf(buf, PRINTBUFLEN-1, "memcached");
+			sprintf(*v, "%"PRId32, c->memcached_port);
+			snprintf(buf, PRINTBUFLEN-1, "memcached_port");
 			i->state = S_name__memcached_namespace;
 			return buf;
 		case S_name__memcached_namespace:
@@ -1329,6 +1394,17 @@ again:
 			}
 			sprintf(*v, "%"PRId32, c->memcached_namespace);
 			snprintf(buf, PRINTBUFLEN-1, "memcached_namespace");
+			i->state = S_name__memcached_expire;
+			return buf;
+		case S_name__memcached_expire:
+			*v = malloc(32);
+			if (*v == NULL) {
+				free(i);
+				out_warning(CNF_NOMEMORY, "No memory to output value");
+				return NULL;
+			}
+			sprintf(*v, "%"PRId32, c->memcached_expire);
+			snprintf(buf, PRINTBUFLEN-1, "memcached_expire");
 			i->state = S_name__memcached_expire_per_loop;
 			return buf;
 		case S_name__memcached_expire_per_loop:
@@ -1790,8 +1866,9 @@ dup_tarantool_cfg(tarantool_cfg* dst, tarantool_cfg* src) {
 	dst->custom_proc_title = src->custom_proc_title == NULL ? NULL : strdup(src->custom_proc_title);
 	if (src->custom_proc_title != NULL && dst->custom_proc_title == NULL)
 		return CNF_NOMEMORY;
-	dst->memcached = src->memcached;
+	dst->memcached_port = src->memcached_port;
 	dst->memcached_namespace = src->memcached_namespace;
+	dst->memcached_expire = src->memcached_expire;
 	dst->memcached_expire_per_loop = src->memcached_expire_per_loop;
 	dst->memcached_expire_full_sweep = src->memcached_expire_full_sweep;
 	dst->snap_io_rate_limit = src->snap_io_rate_limit;
@@ -2057,13 +2134,18 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 
 		return diff;
 }
-	if (c1->memcached != c2->memcached) {
-		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->memcached");
+	if (c1->memcached_port != c2->memcached_port) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->memcached_port");
 
 		return diff;
 	}
 	if (c1->memcached_namespace != c2->memcached_namespace) {
 		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->memcached_namespace");
+
+		return diff;
+	}
+	if (c1->memcached_expire != c2->memcached_expire) {
+		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->memcached_expire");
 
 		return diff;
 	}
@@ -2121,20 +2203,26 @@ cmp_tarantool_cfg(tarantool_cfg* c1, tarantool_cfg* c2, int only_check_rdonly) {
 
 		return diff;
 	}
-	if (c1->remote_hot_standby != c2->remote_hot_standby) {
-		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->remote_hot_standby");
+	if (!only_check_rdonly) {
+		if (c1->remote_hot_standby != c2->remote_hot_standby) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->remote_hot_standby");
 
-		return diff;
+			return diff;
+		}
 	}
-	if (confetti_strcmp(c1->wal_feeder_ipaddr, c2->wal_feeder_ipaddr) != 0) {
-		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_ipaddr");
+	if (!only_check_rdonly) {
+		if (confetti_strcmp(c1->wal_feeder_ipaddr, c2->wal_feeder_ipaddr) != 0) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_ipaddr");
 
-		return diff;
+			return diff;
 }
-	if (c1->wal_feeder_port != c2->wal_feeder_port) {
-		snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_port");
+	}
+	if (!only_check_rdonly) {
+		if (c1->wal_feeder_port != c2->wal_feeder_port) {
+			snprintf(diff, PRINTBUFLEN - 1, "%s", "c->wal_feeder_port");
 
-		return diff;
+			return diff;
+		}
 	}
 
 	i1->idx_name__namespace = 0;

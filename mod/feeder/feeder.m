@@ -87,7 +87,7 @@ recover_feed_slave(int sock)
 	send_row(NULL, ver);
 
 	log_io = recover_init(NULL, cfg.wal_feeder_dir,
-			      NULL, send_row, INT32_MAX, 0, 64, RECOVER_READONLY, false);
+			      send_row, INT32_MAX, 0, 64, RECOVER_READONLY, false);
 
 	recover(log_io, lsn);
 	recover_follow(log_io, 0.1);
@@ -100,11 +100,11 @@ mod_check_config(struct tarantool_cfg *conf __attribute__((unused)))
 	return 0;
 }
 
-void
+i32
 mod_reload_config(struct tarantool_cfg *old_conf __attribute__((unused)),
 		  struct tarantool_cfg *new_conf __attribute__((unused)))
 {
-	return;
+	return 0;
 }
 
 void

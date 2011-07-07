@@ -26,9 +26,10 @@ Insert OK, 1 row affected
 show stat
 ---
 statistics:
-  DELETE:        { rps:  0    , total:  0           }
+  DELETE:        { rps:  0    , total:  1           }
+  DELETE_1_3:    { rps:  0    , total:  0           }
   EXEC_LUA:      { rps:  0    , total:  0           }
-  INSERT:        { rps:  2    , total:  10          }
+  INSERT:        { rps:  2    , total:  11          }
   SELECT:        { rps:  0    , total:  0           }
   SELECT_LIMIT:  { rps:  0    , total:  0           }
   UPDATE_FIELDS: { rps:  0    , total:  0           }
@@ -44,10 +45,31 @@ statistics:
 show stat
 ---
 statistics:
-  DELETE:        { rps:  0    , total:  0           }
+  DELETE:        { rps:  0    , total:  1           }
+  DELETE_1_3:    { rps:  0    , total:  0           }
   EXEC_LUA:      { rps:  0    , total:  0           }
-  INSERT:        { rps:  0    , total:  0           }
+  INSERT:        { rps:  2    , total:  11          }
   SELECT:        { rps:  0    , total:  0           }
   SELECT_LIMIT:  { rps:  0    , total:  0           }
   UPDATE_FIELDS: { rps:  0    , total:  0           }
 ...
+delete from t0 where k0 = 0
+Delete OK, 1 row affected
+delete from t0 where k0 = 1
+Delete OK, 1 row affected
+delete from t0 where k0 = 2
+Delete OK, 1 row affected
+delete from t0 where k0 = 3
+Delete OK, 1 row affected
+delete from t0 where k0 = 4
+Delete OK, 1 row affected
+delete from t0 where k0 = 5
+Delete OK, 1 row affected
+delete from t0 where k0 = 6
+Delete OK, 1 row affected
+delete from t0 where k0 = 7
+Delete OK, 1 row affected
+delete from t0 where k0 = 8
+Delete OK, 1 row affected
+delete from t0 where k0 = 9
+Delete OK, 1 row affected

@@ -119,12 +119,13 @@ tbuf_split(struct tbuf *orig, size_t at)
 {
 	tbuf_assert(orig);
 	assert(at <= orig->len);
-
-	struct tbuf *head = tbuf_alloc_fixed(orig->pool, orig->data, at);
+	struct tbuf *head = palloc(orig->pool, sizeof(*orig));
+	head->pool = orig->pool;
+	head->data = orig->data;
+	head->len = head->size = at;
 	orig->data += at;
 	orig->size -= at;
 	orig->len -= at;
-	head->len += at;
 	return head;
 }
 

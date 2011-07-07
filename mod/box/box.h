@@ -27,38 +27,28 @@
  */
 
 #include <mod/box/index.h>
-#include <exceptions.h>
+#include "exception.h"
+#include "iproto.h"
 #include <tbuf.h>
 
-@interface tnt_BoxException: tnt_Exception {
-	@public
-		u32 errcode;
-}
-
-
-- init:(const char *)p_file:(unsigned)p_line reason:(const char *)p_reason errcode:(u32)p_errcode;
-- init:(const char *)p_file:(unsigned)p_line errcode:(u32)p_errcode;
-@end
-
-extern bool box_updates_allowed;
-void memcached_handler(void * /* data */);
-
-struct namespace;
+struct tarantool_cfg;
 struct box_tuple;
 struct index;
 
-extern struct index *memcached_index;
+enum
+{
+	BOX_INDEX_MAX = 10,
+	BOX_NAMESPACE_MAX = 256,
+};
 
-#define MAX_IDX 10
 struct namespace {
 	int n;
 	bool enabled;
 	int cardinality;
-	struct index index[MAX_IDX];
+	struct index index[BOX_INDEX_MAX];
 };
 
 extern struct namespace *namespace;
-extern const int namespace_count;
 
 struct box_tuple {
 	u16 refs;
@@ -81,7 +71,6 @@ struct box_txn {
 	struct box_tuple *tuple;
 	struct box_tuple *lock_tuple;
 
-	size_t saved_iov_cnt;
 	struct tbuf req;
 
 	bool in_recover;
@@ -108,7 +97,8 @@ enum box_mode {
 #define BOX_ALLOWED_REQUEST_FLAGS	(BOX_RETURN_TUPLE | \
 					 BOX_ADD | \
 					 BOX_REPLACE | \
-					 BOX_QUIET)
+					 BOX_QUIET | \
+					 BOX_NOT_STORE)
 
 /*
     deprecated commands:
@@ -134,24 +124,26 @@ enum box_mode {
         _(SELECT_LIMIT, 15)			\
 	_(SELECT, 17)				\
 	_(UPDATE_FIELDS, 19)			\
-	_(DELETE, 20)				\
-	_(EXEC_LUA, 21)
+	_(DELETE_1_3, 20)			\
+	_(DELETE, 21)                           \
+	_(EXEC_LUA, 22)
 
 ENUM(messages, MESSAGES);
 
 struct box_txn *txn_alloc(u32 flags);
-u32 box_process(struct box_txn *txn, u32 op, struct tbuf *request_data);
+void box_process(struct box_txn *txn, u32 op, struct tbuf *request_data);
+
+extern iproto_callback rw_callback;
+
+/* These 3 are used to implemente memcached 'GET' */
+struct box_txn *txn_alloc(u32 flags);
 void tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple);
 void txn_cleanup(struct box_txn *txn);
 
+/* Used by Lua */
 struct box_tuple *tuple_alloc(size_t size);
-void tuple_txn_ref(struct box_txn *txn, struct box_tuple *tuple);
 void tuple_ref(struct box_tuple *tuple, int count);
 void tuple_add_iov(struct box_txn *txn, struct box_tuple *tuple);
-void *next_field(void *f);
-void append_field(struct tbuf *b, void *f);
 void *tuple_field(struct box_tuple *tuple, size_t i);
 
-void memcached_init(void);
-void memcached_expire(void * /* data */);
 #endif /* TARANTOOL_BOX_H_INCLUDED */

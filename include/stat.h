@@ -30,7 +30,7 @@
 
 void stat_init(void);
 void stat_clear(void);
-int stat_register(char **name, size_t count);
+int stat_register(const char **name, size_t count);
 void stat_collect(int base, int name, i64 value);
 void stat_print(lua_State *L, struct tbuf *buf);
 

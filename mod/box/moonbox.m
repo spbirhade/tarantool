@@ -389,8 +389,8 @@ luaT_box_dispatch(struct lua_State *L)
 	struct box_txn *txn = luaT_checktxn(L, 1);
 	u32 op = luaL_checkinteger(L, 2);
 	struct tbuf *req = luaT_checktbuf(L, 3);
-	u32 r = box_process(txn, op, req);
-	lua_pushinteger(L, r);
+	box_process(txn, op, req);
+	lua_pushinteger(L, 0);
 	return 1;
 }
 
@@ -433,14 +433,14 @@ luaT_openbox(struct lua_State *L)
 	luaL_register(L, "box", boxlib);
 
 	lua_createtable(L, 0, 0); /* namespace_registry */
-	for (uint32_t n = 0; n < namespace_count; ++n) {
+	for (uint32_t n = 0; n < BOX_NAMESPACE_MAX; ++n) {
 		if (!namespace[n].enabled)
 			continue;
 
 		lua_createtable(L, 0, 0); /* namespace */
 		lua_pushliteral(L, "index");
 		lua_createtable(L, 0, 0); /* index */
-		for (int i = 0; i < MAX_IDX; i++) {
+		for (int i = 0; i < BOX_INDEX_MAX; i++) {
 			struct index *index = &namespace[n].index[i];
 			if (index->key_cardinality == 0)
 				break;

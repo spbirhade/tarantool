@@ -26,4 +26,9 @@ print """#
 """
 time.sleep(2)
 exec admin "show stat"
+
+# cleanup
+for i in range(10):
+  exec sql "delete from t0 where k0 = {0}".format(i)
+
 # vim: syntax=python

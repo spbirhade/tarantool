@@ -28,12 +28,7 @@
 #include <stdbool.h>
 
 #include <util.h>
-#include <exceptions.h>
-
 #include <third_party/luajit/src/lua.h>
-
-@interface tnt_PickleException: tnt_Exception
-@end
 
 struct tbuf;
 
