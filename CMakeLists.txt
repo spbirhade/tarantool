@@ -220,14 +220,16 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_C_FLAGS}")
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -fobjc-exceptions")
 
+ENABLE_TESTING()
+
 add_subdirectory(third_party)
 add_subdirectory(cfg)
 add_subdirectory(connector)
 add_subdirectory(core)
 add_subdirectory(mod)
 add_subdirectory(test)
+add_subdirectory(unit)
 add_subdirectory(doc EXCLUDE_FROM_ALL)
-
 install (FILES README LICENSE doc/box-protocol.txt
          DESTINATION doc)
 
